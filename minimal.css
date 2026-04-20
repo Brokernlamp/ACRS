@@ -1,0 +1,174 @@
+/* Minimal Black & White Design */
+:root {
+    --bg:      #FFFFFF;
+    --card:    #FAFAFA;
+    --border:  #E0E0E0;
+    --text:    #333333;
+    --muted:   #666666;
+    --accent:  #000000;
+}
+
+body, .gradio-container { 
+    background: var(--bg) !important; 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--text);
+}
+
+.app-header {
+    background: var(--accent);
+    padding: 20px 30px;
+    margin-bottom: 20px;
+    color: white;
+}
+.app-header h1 { 
+    font-size: 1.5rem; 
+    font-weight: 600; 
+    margin: 0 0 5px 0; 
+    color: white !important; 
+}
+.app-header p { 
+    font-size: 0.9rem; 
+    margin: 0; 
+    color: #CCCCCC !important; 
+}
+
+.upload-card, .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 15px;
+    margin: 10px 0;
+}
+
+.kpi-grid { 
+    display: grid; 
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 10px; 
+    margin: 15px 0; 
+}
+.kpi-label { 
+    font-size: 0.75rem; 
+    font-weight: 500; 
+    color: var(--muted); 
+    text-transform: uppercase; 
+    margin-bottom: 5px; 
+}
+.kpi-value { 
+    font-size: 1.5rem; 
+    font-weight: 600; 
+    color: var(--text); 
+}
+
+.section-title {
+    font-size: 1rem; 
+    font-weight: 600; 
+    color: var(--text);
+    border-left: 3px solid var(--accent);
+    padding-left: 10px; 
+    margin: 20px 0 10px 0;
+}
+
+.insight-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    color: var(--text);
+}
+
+.pred-grid { 
+    display: grid; 
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 10px; 
+    margin: 10px 0; 
+}
+.pred-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 15px;
+    text-align: center;
+}
+.pred-label { 
+    font-size: 0.7rem; 
+    font-weight: 500; 
+    color: var(--muted); 
+    text-transform: uppercase; 
+}
+.pred-val { 
+    font-size: 1.3rem; 
+    font-weight: 600; 
+    color: var(--text); 
+    margin: 5px 0; 
+}
+.pred-sub { 
+    font-size: 0.75rem; 
+    color: var(--muted); 
+}
+
+.action-card {
+    background: var(--card);
+    border-left: 3px solid var(--accent);
+    padding: 10px 15px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+}
+
+.alloc-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    font-size: 0.85rem; 
+    margin-top: 10px; 
+}
+.alloc-table th { 
+    background: var(--accent); 
+    color: white; 
+    padding: 10px; 
+    text-align: left; 
+    font-weight: 500; 
+}
+.alloc-table td { 
+    padding: 8px 10px; 
+    border-bottom: 1px solid var(--border); 
+}
+.alloc-table tr:nth-child(even) td { 
+    background: var(--card); 
+}
+
+.status-ok { color: #000000; font-weight: 500; }
+.status-err { color: #000000; font-weight: 500; }
+
+button { 
+    border-radius: 3px !important; 
+    font-weight: 500 !important;
+}
+
+.finance-grid { 
+    display: grid; 
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 10px; 
+    margin: 10px 0; 
+}
+.finance-card {
+    background: var(--card); 
+    border: 1px solid var(--border);
+    padding: 15px; 
+    text-align: center;
+}
+.finance-card .f-label { 
+    font-size: 0.75rem; 
+    font-weight: 500; 
+    color: var(--muted); 
+    text-transform: uppercase; 
+}
+.finance-card .f-val { 
+    font-size: 1.3rem; 
+    font-weight: 600; 
+    margin-top: 5px; 
+}
+
+.sim-result {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 15px;
+    font-size: 0.9rem;
+}
