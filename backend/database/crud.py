@@ -3,7 +3,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from database.models import User, Client, Campaign, CampaignData, APIConnection, Alert, Report
+from database.models import User, Client, Campaign, CampaignData, APIConnection, Alert, Report, CampaignGroup
 
 
 # ── Users ──────────────────────────────────────────────────────────────────────
@@ -314,3 +314,213 @@ def mark_report_sent(db: Session, report_id: int):
     if report:
         report.sent_at = datetime.utcnow()
         db.commit()
+
+
+# ── Campaign Groups ────────────────────────────────────────────────────────────
+def create_campaign_group(
+    db: Session, client_id: int, name: str,
+    objective: str = "conversion", description: str = None
+) -> CampaignGroup:
+    try:
+        group = CampaignGroup(
+            client_id=client_id, name=name,
+            objective=objective, description=description
+        )
+        db.add(group)
+        db.commit()
+        db.refresh(group)
+        return group
+    except IntegrityError:
+        db.rollback()
+        raise ValueError(f"Campaign group '{name}' already exists for this client")
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RuntimeError(f"Database error creating campaign group: {str(e)}")
+
+
+def get_campaign_groups(db: Session, client_id: int) -> List[CampaignGroup]:
+    return db.query(CampaignGroup).filter(
+        CampaignGroup.client_id == client_id,
+        CampaignGroup.is_active == True
+    ).order_by(CampaignGroup.name).all()
+
+
+def assign_campaign_to_group(
+    db: Session, campaign_id: int, group_id: Optional[int]
+) -> Campaign:
+    """Assign or unassign a campaign to/from a group. Pass group_id=None to unassign."""
+    try:
+        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        if not campaign:
+            raise ValueError(f"Campaign {campaign_id} not found")
+        campaign.group_id = group_id
+        db.commit()
+        db.refresh(campaign)
+        return campaign
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise RuntimeError(f"Database error assigning campaign to group: {str(e)}")
+
+
+def get_group_performance(
+    db: Session, group_id: int,
+    start_date: date = None, end_date: date = None
+) -> dict:
+    """
+    Aggregate all campaign data within a group across all platforms.
+    Returns blended metrics + per-platform breakdown + P&L.
+    """
+    group = db.query(CampaignGroup).filter(CampaignGroup.id == group_id).first()
+    if not group:
+        return {}
+
+    result = {
+        "group_id": group.id,
+        "group_name": group.name,
+        "objective": group.objective,
+        "platforms": {},
+        "blended": {
+            "spend": 0.0, "leads": 0, "impressions": 0,
+            "clicks": 0, "revenue": 0.0,
+        },
+    }
+
+    for campaign in group.campaigns:
+        if not campaign.is_active:
+            continue
+        query = db.query(CampaignData).filter(CampaignData.campaign_id == campaign.id)
+        if start_date:
+            query = query.filter(CampaignData.date >= start_date)
+        if end_date:
+            query = query.filter(CampaignData.date <= end_date)
+        rows = query.all()
+
+        platform = campaign.platform or "manual"
+        if platform not in result["platforms"]:
+            result["platforms"][platform] = {
+                "spend": 0.0, "leads": 0, "impressions": 0,
+                "clicks": 0, "revenue": 0.0, "campaigns": []
+            }
+
+        camp_spend = sum(float(r.spend or 0) for r in rows)
+        camp_leads = sum(int(r.leads or 0) for r in rows)
+        camp_impressions = sum(int(r.impressions or 0) for r in rows)
+        camp_clicks = sum(int(r.clicks or 0) for r in rows)
+        camp_revenue = sum(float(r.revenue or 0) for r in rows)
+
+        result["platforms"][platform]["spend"] += camp_spend
+        result["platforms"][platform]["leads"] += camp_leads
+        result["platforms"][platform]["impressions"] += camp_impressions
+        result["platforms"][platform]["clicks"] += camp_clicks
+        result["platforms"][platform]["revenue"] += camp_revenue
+        result["platforms"][platform]["campaigns"].append({
+            "id": campaign.id,
+            "name": campaign.campaign_name,
+            "platform": platform,
+            "spend": round(camp_spend, 2),
+            "leads": camp_leads,
+            "cpl": round(camp_spend / camp_leads, 2) if camp_leads else 0,
+        })
+
+        result["blended"]["spend"] += camp_spend
+        result["blended"]["leads"] += camp_leads
+        result["blended"]["impressions"] += camp_impressions
+        result["blended"]["clicks"] += camp_clicks
+        result["blended"]["revenue"] += camp_revenue
+
+    b = result["blended"]
+    b["cpl"] = round(b["spend"] / b["leads"], 2) if b["leads"] else 0
+    b["ctr"] = round((b["clicks"] / b["impressions"]) * 100, 2) if b["impressions"] else 0
+    b["roas"] = round(b["revenue"] / b["spend"], 2) if b["spend"] and b["revenue"] else 0
+    b["spend"] = round(b["spend"], 2)
+    b["revenue"] = round(b["revenue"], 2)
+
+    # P&L using client target_cpl and revenue_per_lead
+    client = db.query(Client).filter(Client.id == group.client_id).first()
+    if client:
+        target_cpl = float(client.target_cpl or 0)
+        rev_per_lead = float(client.revenue_per_lead or 0)
+        if target_cpl and b["cpl"]:
+            b["vs_target_cpl_pct"] = round(((b["cpl"] - target_cpl) / target_cpl) * 100, 1)
+            b["efficiency_status"] = "profit" if b["cpl"] <= target_cpl else "loss"
+        if rev_per_lead and b["leads"]:
+            b["estimated_revenue"] = round(b["leads"] * rev_per_lead, 2)
+            b["estimated_profit"] = round(b["estimated_revenue"] - b["spend"], 2)
+            b["profit_status"] = "profit" if b["estimated_profit"] > 0 else "loss"
+
+    # Per-platform CPL for comparison
+    for platform, pdata in result["platforms"].items():
+        pdata["cpl"] = round(pdata["spend"] / pdata["leads"], 2) if pdata["leads"] else 0
+        pdata["spend"] = round(pdata["spend"], 2)
+
+    return result
+
+
+def get_client_cross_platform_summary(
+    db: Session, client_id: int,
+    start_date: date = None, end_date: date = None
+) -> dict:
+    """
+    Full cross-platform summary for a client.
+    Groups all campaigns by platform and by campaign group.
+    This is the top-level view an agency sees for one client.
+    """
+    groups = get_campaign_groups(db, client_id)
+    group_performances = []
+    for group in groups:
+        perf = get_group_performance(db, group.id, start_date, end_date)
+        if perf:
+            group_performances.append(perf)
+
+    # Also get ungrouped campaigns
+    ungrouped = db.query(Campaign).filter(
+        Campaign.client_id == client_id,
+        Campaign.group_id == None,
+        Campaign.is_active == True
+    ).all()
+
+    ungrouped_data = []
+    for campaign in ungrouped:
+        query = db.query(CampaignData).filter(CampaignData.campaign_id == campaign.id)
+        if start_date:
+            query = query.filter(CampaignData.date >= start_date)
+        if end_date:
+            query = query.filter(CampaignData.date <= end_date)
+        rows = query.all()
+        spend = round(sum(float(r.spend or 0) for r in rows), 2)
+        leads = sum(int(r.leads or 0) for r in rows)
+        ungrouped_data.append({
+            "id": campaign.id,
+            "name": campaign.campaign_name,
+            "platform": campaign.platform or "manual",
+            "spend": spend,
+            "leads": leads,
+            "cpl": round(spend / leads, 2) if leads else 0,
+            "group": None,
+        })
+
+    # Platform totals across everything
+    platform_totals: dict = {}
+    for gp in group_performances:
+        for platform, pdata in gp["platforms"].items():
+            if platform not in platform_totals:
+                platform_totals[platform] = {"spend": 0.0, "leads": 0}
+            platform_totals[platform]["spend"] += pdata["spend"]
+            platform_totals[platform]["leads"] += pdata["leads"]
+    for item in ungrouped_data:
+        p = item["platform"]
+        if p not in platform_totals:
+            platform_totals[p] = {"spend": 0.0, "leads": 0}
+        platform_totals[p]["spend"] += item["spend"]
+        platform_totals[p]["leads"] += item["leads"]
+
+    for p, t in platform_totals.items():
+        t["cpl"] = round(t["spend"] / t["leads"], 2) if t["leads"] else 0
+        t["spend"] = round(t["spend"], 2)
+
+    return {
+        "client_id": client_id,
+        "groups": group_performances,
+        "ungrouped_campaigns": ungrouped_data,
+        "platform_totals": platform_totals,
+    }

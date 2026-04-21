@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, Date, 
+    Column, Integer, String, Boolean, DateTime, Date,
     Numeric, Text, ForeignKey, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
@@ -9,7 +9,6 @@ from database import Base
 
 class User(Base):
     __tablename__ = "users"
-    
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
@@ -18,8 +17,6 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     subscription_tier = Column(String(50), default="free")
-    
-    # Relationships
     clients = relationship("Client", back_populates="user", cascade="all, delete-orphan")
     api_connections = relationship("APIConnection", back_populates="user", cascade="all, delete-orphan")
 
@@ -27,36 +24,53 @@ class User(Base):
 class Client(Base):
     __tablename__ = "clients"
     __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_client_name"),)
-    
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     industry = Column(String(100))
     target_cpl = Column(Numeric(10, 2))
     monthly_budget = Column(Numeric(10, 2))
+    revenue_per_lead = Column(Numeric(10, 2))  # enables P&L calculation
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
-    
-    # Relationships
     user = relationship("User", back_populates="clients")
     campaigns = relationship("Campaign", back_populates="client", cascade="all, delete-orphan")
+    campaign_groups = relationship("CampaignGroup", back_populates="client", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="client", cascade="all, delete-orphan")
     reports = relationship("Report", back_populates="client", cascade="all, delete-orphan")
 
 
-class Campaign(Base):
-    __tablename__ = "campaigns"
-    
+class CampaignGroup(Base):
+    """
+    A logical container that groups campaigns from different platforms
+    that serve the same objective for the same client.
+    e.g. 'Retargeting' group = Google Display + Meta Retargeting
+    """
+    __tablename__ = "campaign_groups"
+    __table_args__ = (UniqueConstraint("client_id", "name", name="uq_client_group_name"),)
     id = Column(Integer, primary_key=True, index=True)
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)          # e.g. "Retargeting"
+    objective = Column(String(50), default="conversion") # awareness | consideration | conversion
+    description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+    client = relationship("Client", back_populates="campaign_groups")
+    campaigns = relationship("Campaign", back_populates="group")
+
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    group_id = Column(Integer, ForeignKey("campaign_groups.id", ondelete="SET NULL"), nullable=True)
     campaign_name = Column(String(255), nullable=False)
-    platform = Column(String(50))  # 'google_ads', 'meta_ads', 'linkedin', 'manual'
+    platform = Column(String(50), default="manual")  # google_ads | meta_ads | linkedin | manual
     platform_campaign_id = Column(String(255))
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
-    
-    # Relationships
     client = relationship("Client", back_populates="campaigns")
+    group = relationship("CampaignGroup", back_populates="campaigns")
     data = relationship("CampaignData", back_populates="campaign", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="campaign")
 

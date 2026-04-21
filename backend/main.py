@@ -33,6 +33,9 @@ from database import SessionLocal
 from database.crud import (
     create_client, get_clients_by_user, get_campaigns_by_client,
     create_campaign, upsert_campaign_data,
+    create_campaign_group, get_campaign_groups,
+    assign_campaign_to_group, get_group_performance,
+    get_client_cross_platform_summary,
 )
 from comparison import calculate_period_comparison, get_date_ranges, get_comparison_summary
 from rag import build_index
@@ -409,17 +412,123 @@ def health():
     return {"status": "ok"}
 
 
+# ── Campaign Groups ─────────────────────────────────────────────────────────────────
+class CampaignGroupRequest(BaseModel):
+    client_id: int
+    name: str
+    objective: str = "conversion"
+    description: Optional[str] = None
+
+
+class AssignCampaignRequest(BaseModel):
+    campaign_id: int
+    group_id: Optional[int] = None
+
+
+@app.post("/api/campaign-groups")
+def create_group(req: CampaignGroupRequest):
+    db = SessionLocal()
+    try:
+        group = create_campaign_group(
+            db, client_id=req.client_id, name=req.name,
+            objective=req.objective, description=req.description
+        )
+        return {"id": group.id, "name": group.name, "objective": group.objective}
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    finally:
+        db.close()
+
+
+@app.get("/api/campaign-groups/{client_id}")
+def list_groups(client_id: int):
+    db = SessionLocal()
+    try:
+        groups = get_campaign_groups(db, client_id)
+        return [
+            {"id": g.id, "name": g.name, "objective": g.objective,
+             "description": g.description,
+             "campaign_count": len([c for c in g.campaigns if c.is_active])}
+            for g in groups
+        ]
+    finally:
+        db.close()
+
+
+@app.post("/api/campaign-groups/assign")
+def assign_to_group(req: AssignCampaignRequest):
+    db = SessionLocal()
+    try:
+        campaign = assign_campaign_to_group(db, req.campaign_id, req.group_id)
+        return {"campaign_id": campaign.id, "group_id": campaign.group_id}
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    finally:
+        db.close()
+
+
+@app.get("/api/campaign-groups/performance/{group_id}")
+def group_performance(group_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None):
+    from datetime import datetime as dt
+    db = SessionLocal()
+    try:
+        sd = dt.strptime(start_date, "%Y-%m-%d").date() if start_date else None
+        ed = dt.strptime(end_date, "%Y-%m-%d").date() if end_date else None
+        result = get_group_performance(db, group_id, sd, ed)
+        if not result:
+            raise HTTPException(404, "Group not found")
+        return _safe(result)
+    finally:
+        db.close()
+
+
+@app.get("/api/clients/{client_id}/cross-platform")
+def cross_platform_summary(client_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None):
+    """The main multi-platform view — all campaigns grouped, with blended metrics and P&L."""
+    from datetime import datetime as dt
+    db = SessionLocal()
+    try:
+        sd = dt.strptime(start_date, "%Y-%m-%d").date() if start_date else None
+        ed = dt.strptime(end_date, "%Y-%m-%d").date() if end_date else None
+        result = get_client_cross_platform_summary(db, client_id, sd, ed)
+        return _safe(result)
+    finally:
+        db.close()
+
+
+@app.get("/api/clients/{client_id}/campaigns")
+def list_client_campaigns(client_id: int):
+    """List all campaigns for a client with their group assignment and platform."""
+    db = SessionLocal()
+    try:
+        campaigns = get_campaigns_by_client(db, client_id)
+        return [
+            {
+                "id": c.id,
+                "name": c.campaign_name,
+                "platform": c.platform or "manual",
+                "group_id": c.group_id,
+                "group_name": c.group.name if c.group else None,
+            }
+            for c in campaigns
+        ]
+    finally:
+        db.close()
+
+
 # ── Settings ─────────────────────────────────────────────────────────────────
 @app.get("/api/settings")
 def get_settings():
-    """Return current non-secret settings."""
-    from dotenv import load_dotenv
-    load_dotenv(override=True)
-    key = os.getenv("GEMINI_API_KEY", "")
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    active = "groq" if groq_key else ("gemini" if gemini_key else "none")
     return {
-        "gemini_api_key_set": bool(key),
-        "gemini_api_key_preview": f"{key[:8]}...{key[-4:]}" if len(key) > 12 else ("set" if key else ""),
-        "gemini_model": "gemini-2.0-flash-lite",
+        "groq_api_key_set": bool(groq_key),
+        "groq_api_key_preview": f"{groq_key[:8]}...{groq_key[-4:]}" if len(groq_key) > 12 else ("set" if groq_key else ""),
+        "gemini_api_key_set": bool(gemini_key),
+        "gemini_api_key_preview": f"{gemini_key[:8]}...{gemini_key[-4:]}" if len(gemini_key) > 12 else ("set" if gemini_key else ""),
+        "active_provider": active,
+        "active_model": "llama-3.1-8b-instant" if active == "groq" else ("gemini-2.0-flash-lite" if active == "gemini" else "none"),
         "database_url": os.getenv("DATABASE_URL", "sqlite:///./acrs.db"),
     }
 
