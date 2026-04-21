@@ -15,19 +15,18 @@ print('Model cached successfully.')
 echo "▶ Initialising database tables..."
 python -c "
 from database import init_db
-from database.crud import create_user
 from database import SessionLocal
 from database.models import User
-import os
+import bcrypt
 
 init_db()
 
-# Seed default user if not present
 db = SessionLocal()
 try:
     if not db.query(User).filter(User.id == 1).first():
-        from auth import hash_password
-        create_user(db, email='admin@acrs.com', password_hash=hash_password('admin123'), full_name='Admin')
+        from database.crud import create_user
+        pw_hash = bcrypt.hashpw('admin123'.encode(), bcrypt.gensalt()).decode()
+        create_user(db, email='admin@acrs.com', password_hash=pw_hash, full_name='Admin')
         print('Default user seeded.')
     else:
         print('Default user already exists.')
