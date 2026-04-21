@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useAppState } from "@/lib/store";
-import ChartImage from "@/components/ChartImage";
+import PlotlyChart from "@/components/PlotlyChart";
 import { api, SimResult } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 
@@ -81,8 +81,8 @@ export default function AiEnginePage() {
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartImage b64={charts.leads_forecast} alt="Leads Forecast with Confidence Band" />
-        <ChartImage b64={charts.campaign_performance} alt="CPL by Campaign" />
+        <PlotlyChart data={charts.leads_forecast} />
+        <PlotlyChart data={charts.campaign_performance} />
       </div>
 
       {/* Recommended Actions */}
@@ -137,8 +137,8 @@ export default function AiEnginePage() {
         </div>
       </section>
 
-      {/* Budget comparison chart — replaces pie */}
-      <ChartImage b64={charts.budget_allocation} alt="Current Spend vs Recommended Budget" />
+      {/* Budget comparison chart */}
+      <PlotlyChart data={charts.budget_allocation} />
 
       {/* Detected Patterns */}
       <section>

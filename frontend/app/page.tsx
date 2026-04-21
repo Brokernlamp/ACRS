@@ -5,6 +5,7 @@ import { useAppState } from "@/lib/store";
 import UploadPanel from "@/components/UploadPanel";
 import KpiCards from "@/components/KpiCards";
 import ChartImage from "@/components/ChartImage";
+import PlotlyChart from "@/components/PlotlyChart";
 import StatusBanner from "@/components/StatusBanner";
 import { RefreshCw, Loader2, Download, AlertTriangle } from "lucide-react";
 
@@ -100,10 +101,10 @@ export default function DashboardPage() {
           <KpiCards kpis={data.kpis} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <ChartImage b64={data.charts.leads_over_time} alt="Leads Over Time" />
-            <ChartImage b64={data.charts.spend_vs_leads} alt="Spend vs Leads by Campaign" />
+            <PlotlyChart data={data.charts.leads_over_time} />
+            <PlotlyChart data={data.charts.spend_vs_leads} />
           </div>
-          <ChartImage b64={data.charts.campaign_performance} alt="CPL by Campaign" />
+          <PlotlyChart data={data.charts.campaign_performance} />
 
           {/* Campaign data table */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">

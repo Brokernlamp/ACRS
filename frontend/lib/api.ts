@@ -56,12 +56,12 @@ export interface AnalyticsResult {
   allocation: AllocationRow[];
   patterns: string[];
   charts: {
-    leads_over_time: string;
-    spend_vs_leads: string;
-    campaign_performance: string;
-    performance_scores: string;
-    budget_allocation: string;
-    leads_forecast: string;
+    leads_over_time: object;
+    spend_vs_leads: object;
+    campaign_performance: object;
+    performance_scores: object;
+    budget_allocation: object;
+    leads_forecast: object;
   };
   comparison_summary?: string;
 }

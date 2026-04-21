@@ -1,5 +1,4 @@
 import io
-import base64
 import os
 import math
 import logging
@@ -134,19 +133,19 @@ def _process_df(df: pd.DataFrame) -> dict:
     kpis = {k: (int(v) if isinstance(v, (int,)) else float(v) if hasattr(v, '__float__') and not isinstance(v, str) else v) for k, v in kpis.items()}
     insights = generate_insights(camp, kpis)
 
-    _, png1 = chart_leads_over_time(daily)
-    _, png2 = chart_spend_vs_leads(camp)
-    _, png3 = chart_campaign_performance(camp)
+    _, json1 = chart_leads_over_time(daily)
+    _, json2 = chart_spend_vs_leads(camp)
+    _, json3 = chart_campaign_performance(camp)
 
     intel = run_intelligence(camp, daily)
-    _, png4 = chart_performance_scores(intel["scored"])
-    _, png5 = chart_budget_allocation(intel["allocation"])
-    _, png6 = chart_leads_forecast(daily, intel["leads_prediction"]["predicted_leads"])
+    _, json4 = chart_performance_scores(intel["scored"])
+    _, json5 = chart_budget_allocation(intel["allocation"])
+    _, json6 = chart_leads_forecast(daily, intel["leads_prediction"]["predicted_leads"])
 
     _state.update(
         df=df, camp=camp, daily=daily, kpis=kpis,
-        insights=insights, pngs=[png1, png2, png3],
-        intel=intel, ai_pngs=[png4, png5, png6],
+        insights=insights, pngs=[json1, json2, json3],
+        intel=intel, ai_pngs=[json4, json5, json6],
     )
 
     # Build RAG index from fresh data
@@ -179,12 +178,12 @@ def _process_df(df: pd.DataFrame) -> dict:
         "allocation": alloc_records,
         "patterns": intel["patterns"],
         "charts": {
-            "leads_over_time": _fig_to_b64(png1),
-            "spend_vs_leads": _fig_to_b64(png2),
-            "campaign_performance": _fig_to_b64(png3),
-            "performance_scores": _fig_to_b64(png4),
-            "budget_allocation": _fig_to_b64(png5),
-            "leads_forecast": _fig_to_b64(png6),
+            "leads_over_time": json1,
+            "spend_vs_leads": json2,
+            "campaign_performance": json3,
+            "performance_scores": json4,
+            "budget_allocation": json5,
+            "leads_forecast": json6,
         },
     }
     return _safe(result)

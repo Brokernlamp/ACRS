@@ -1,15 +1,11 @@
-import io
+import json
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
-import numpy as np
 
 
-def _to_png(fig) -> bytes:
-    try:
-        return fig.to_image(format="png", width=900, height=400)
-    except Exception as e:
-        raise RuntimeError(f"Failed to render chart to PNG: {str(e)}")
+def _to_json(fig) -> dict:
+    return json.loads(fig.to_json())
 
 
 def chart_leads_over_time(daily: pd.DataFrame):
@@ -23,7 +19,7 @@ def chart_leads_over_time(daily: pd.DataFrame):
         markers=True,
     )
     fig.update_traces(line_color="#4F46E5", line_width=2.5)
-    return fig, _to_png(fig)
+    return fig, _to_json(fig)
 
 
 def chart_spend_vs_leads(camp: pd.DataFrame):
@@ -38,7 +34,7 @@ def chart_spend_vs_leads(camp: pd.DataFrame):
         template="plotly_white",
         legend=dict(orientation="h", y=1.1),
     )
-    return fig, _to_png(fig)
+    return fig, _to_json(fig)
 
 
 def chart_campaign_performance(camp: pd.DataFrame):
@@ -57,7 +53,7 @@ def chart_campaign_performance(camp: pd.DataFrame):
         color="cpl",
         color_continuous_scale=["#10B981", "#F59E0B", "#EF4444"],
     )
-    return fig, _to_png(fig)
+    return fig, _to_json(fig)
 
 
 def chart_performance_scores(scored: pd.DataFrame):
@@ -75,20 +71,23 @@ def chart_performance_scores(scored: pd.DataFrame):
         text="score",
     )
     fig.update_traces(textposition="outside")
-    return fig, _to_png(fig)
+    return fig, _to_json(fig)
 
 
 def chart_budget_allocation(alloc: pd.DataFrame):
-    """Current spend vs recommended budget side-by-side bar — replaces pie chart."""
     if alloc.empty:
         raise ValueError("No data available for budget allocation chart")
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        name="Current Spend", x=alloc["campaign"], y=alloc["spend"] if "spend" in alloc.columns else [0]*len(alloc),
+        name="Current Spend",
+        x=alloc["campaign"],
+        y=alloc["spend"] if "spend" in alloc.columns else [0] * len(alloc),
         marker_color="#94A3B8",
     ))
     fig.add_trace(go.Bar(
-        name="Recommended Budget", x=alloc["campaign"], y=alloc["recommended_budget"],
+        name="Recommended Budget",
+        x=alloc["campaign"],
+        y=alloc["recommended_budget"],
         marker_color="#4F46E5",
         text=[f"${v:,.0f}" for v in alloc["recommended_budget"]],
         textposition="outside",
@@ -100,7 +99,7 @@ def chart_budget_allocation(alloc: pd.DataFrame):
         legend=dict(orientation="h", y=1.1),
         yaxis_title="Amount ($)",
     )
-    return fig, _to_png(fig)
+    return fig, _to_json(fig)
 
 
 def chart_leads_forecast(daily: pd.DataFrame, predicted_leads: int, days_ahead: int = 7):
@@ -112,12 +111,10 @@ def chart_leads_forecast(daily: pd.DataFrame, predicted_leads: int, days_ahead: 
         raise ValueError("Invalid date data in daily trends")
     future_dates = pd.date_range(last_date + pd.Timedelta(days=1), periods=days_ahead)
     daily_pred = (predicted_leads or 0) / days_ahead
-    # Confidence band: ±20% around forecast
     upper = daily_pred * 1.20
     lower = daily_pred * 0.80
 
     fig = go.Figure()
-    # Confidence band
     fig.add_trace(go.Scatter(
         x=list(future_dates) + list(future_dates[::-1]),
         y=[upper] * days_ahead + [lower] * days_ahead,
@@ -130,7 +127,7 @@ def chart_leads_forecast(daily: pd.DataFrame, predicted_leads: int, days_ahead: 
         name="Actual", line=dict(color="#4F46E5", width=2.5), mode="lines+markers"
     ))
     fig.add_trace(go.Scatter(
-        x=future_dates, y=[daily_pred] * days_ahead,
+        x=list(future_dates), y=[daily_pred] * days_ahead,
         name="Forecast", line=dict(color="#10B981", width=2, dash="dash"), mode="lines+markers"
     ))
     fig.update_layout(
@@ -138,4 +135,4 @@ def chart_leads_forecast(daily: pd.DataFrame, predicted_leads: int, days_ahead: 
         template="plotly_white",
         legend=dict(orientation="h", y=1.1),
     )
-    return fig, _to_png(fig)
+    return fig, _to_json(fig)
