@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: acrs-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: "./build.sh"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port 10000"
+    plan: starter          # upgrade to standard for always-on (no sleep)
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: acrs-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "False"
+      - key: GEMINI_API_KEY
+        sync: false          # set manually in Render dashboard
+      - key: ALLOWED_ORIGINS
+        sync: false          # set to your Vercel URL after deploy
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+
+databases:
+  - name: acrs-db
+    databaseName: acrs
+    user: acrs_user
+    plan: free

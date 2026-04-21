@@ -62,9 +62,14 @@ def _safe(obj: Any) -> Any:
 
 app = FastAPI(title="AI Growth Operator API")
 
+# CORS — reads allowed origins from env so Vercel URL works in production
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+log.info(f"[MAIN] CORS allowed origins: {_allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -429,31 +434,31 @@ class SettingsUpdateRequest(BaseModel):
 
 @app.post("/api/settings")
 def update_settings(req: SettingsUpdateRequest):
-    """Write GEMINI_API_KEY to backend/.env at runtime."""
-    env_path = os.path.join(os.path.dirname(__file__), ".env")
-    try:
-        # Read existing lines
-        lines = open(env_path).readlines() if os.path.exists(env_path) else []
-        key_line = f"GEMINI_API_KEY={req.gemini_api_key}\n"
-        updated = False
-        new_lines = []
-        for line in lines:
-            if line.startswith("GEMINI_API_KEY="):
-                new_lines.append(key_line)
-                updated = True
-            else:
-                new_lines.append(line)
-        if not updated:
-            new_lines.append(key_line)
-        with open(env_path, "w") as f:
-            f.writelines(new_lines)
-        # Reload env in process
-        from dotenv import load_dotenv
-        load_dotenv(override=True)
-        log.info(f"[SETTINGS] GEMINI_API_KEY updated")
-        return {"status": "saved"}
-    except Exception as e:
-        raise HTTPException(500, f"Failed to save settings: {e}")
+    """Update GEMINI_API_KEY — writes to .env locally, uses os.environ in production."""
+    if req.gemini_api_key:
+        os.environ["GEMINI_API_KEY"] = req.gemini_api_key
+        # Also persist to .env file if it exists (local dev only)
+        env_path = os.path.join(os.path.dirname(__file__), ".env")
+        if os.path.exists(env_path):
+            try:
+                lines = open(env_path).readlines()
+                key_line = f"GEMINI_API_KEY={req.gemini_api_key}\n"
+                updated = False
+                new_lines = []
+                for line in lines:
+                    if line.startswith("GEMINI_API_KEY="):
+                        new_lines.append(key_line)
+                        updated = True
+                    else:
+                        new_lines.append(line)
+                if not updated:
+                    new_lines.append(key_line)
+                with open(env_path, "w") as f:
+                    f.writelines(new_lines)
+            except OSError:
+                pass  # Read-only filesystem in production — env var already set above
+        log.info("[SETTINGS] GEMINI_API_KEY updated")
+    return {"status": "saved"}
 
 
 @app.get("/api/settings/sample-data")
