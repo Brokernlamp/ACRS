@@ -1,20 +1,57 @@
-# Python
-backend/.venv/
-backend/__pycache__/
-backend/**/__pycache__/
-backend/*.pyc
-backend/acrs.db
-backend/uploads/
-backend/reports/
-
-# Secrets — never commit
+# ── Secrets — NEVER commit ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
 backend/.env
+backend/.env.*
 frontend/.env.local
+frontend/.env*.local
 
-# Node
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+backend/.venv/
+*.egg-info/
+
+# ── Databases ─────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+acrs.db
+backend/acrs.db
+
+# ── Uploads & generated files ─────────────────────────────────────────────────
+backend/uploads/*
+backend/reports/*
+uploads/*
+reports/*
+!backend/uploads/.gitkeep
+!backend/reports/.gitkeep
+!uploads/.gitkeep
+!reports/.gitkeep
+
+# ── Node / Next.js ────────────────────────────────────────────────────────────
 frontend/node_modules/
 frontend/.next/
+frontend/.turbo/
+node_modules/
 
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
 Thumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Stale root-level duplicates (moved to backend/) ──────────────────────────
+database/__pycache__/
