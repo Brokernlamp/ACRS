@@ -2,7 +2,7 @@ import hashlib
 import logging
 import pandas as pd
 import chromadb
-from chromadb.utils import embedding_functions
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
 log = logging.getLogger("rag")
 
@@ -19,12 +19,10 @@ except Exception as e:
     log.error(f"[RAG] ChromaDB init FAILED: {e}")
     raise
 
-# ── Embedding function ────────────────────────────────────────────────────────
+# ── Embedding function — lightweight default (~50MB vs 400MB for MiniLM) ──────
 try:
-    _ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name="all-MiniLM-L6-v2"
-    )
-    log.info("[RAG] SentenceTransformer embedding function loaded")
+    _ef = DefaultEmbeddingFunction()
+    log.info("[RAG] DefaultEmbeddingFunction loaded")
 except Exception as e:
     log.error(f"[RAG] Embedding function init FAILED: {e}")
     raise

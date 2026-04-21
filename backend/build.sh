@@ -4,14 +4,6 @@ set -e
 echo "▶ Installing Python dependencies..."
 pip install -r requirements.txt
 
-echo "▶ Pre-downloading sentence-transformers model (all-MiniLM-L6-v2)..."
-python -c "
-from sentence_transformers import SentenceTransformer
-print('Downloading all-MiniLM-L6-v2...')
-SentenceTransformer('all-MiniLM-L6-v2')
-print('Model cached successfully.')
-"
-
 echo "▶ Initialising database tables..."
 python -c "
 from database import init_db
