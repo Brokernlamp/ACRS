@@ -2,7 +2,16 @@ import io
 import base64
 import os
 import math
+import logging
 from typing import Optional, Any
+
+# ── Logging setup — must be before any module imports ─────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("main")
 
 import numpy as np
 import pandas as pd
@@ -138,19 +147,16 @@ def _process_df(df: pd.DataFrame) -> dict:
     # Build RAG index from fresh data
     try:
         alloc_list = intel["allocation"].fillna(0).to_dict(orient="records")
+        log.info(f"[MAIN] Building RAG index — {len(df)} rows, {len(camp)} campaigns")
         build_index(
-            df=df,
-            camp_summary=camp,
-            kpis=kpis,
-            insights=insights,
-            actions=intel["actions"],
-            patterns=intel["patterns"],
-            waste=intel["waste"],
-            allocation=alloc_list,
-            predictions=intel["leads_prediction"],
+            df=df, camp_summary=camp, kpis=kpis,
+            insights=insights, actions=intel["actions"],
+            patterns=intel["patterns"], waste=intel["waste"],
+            allocation=alloc_list, predictions=intel["leads_prediction"],
         )
-    except Exception:
-        pass  # RAG index failure must never break the main pipeline
+        log.info("[MAIN] RAG index built successfully")
+    except Exception as rag_err:
+        log.error(f"[MAIN] RAG index build FAILED: {type(rag_err).__name__}: {rag_err}")
 
     # Convert allocation DataFrame — replace NaN with 0 for JSON safety
     alloc_records = intel["allocation"].fillna(0).to_dict(orient="records")
@@ -402,16 +408,115 @@ def health():
     return {"status": "ok"}
 
 
+# ── Settings ─────────────────────────────────────────────────────────────────
+@app.get("/api/settings")
+def get_settings():
+    """Return current non-secret settings."""
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    key = os.getenv("GEMINI_API_KEY", "")
+    return {
+        "gemini_api_key_set": bool(key),
+        "gemini_api_key_preview": f"{key[:8]}...{key[-4:]}" if len(key) > 12 else ("set" if key else ""),
+        "gemini_model": "gemini-2.0-flash-lite",
+        "database_url": os.getenv("DATABASE_URL", "sqlite:///./acrs.db"),
+    }
+
+
+class SettingsUpdateRequest(BaseModel):
+    gemini_api_key: str = ""
+
+
+@app.post("/api/settings")
+def update_settings(req: SettingsUpdateRequest):
+    """Write GEMINI_API_KEY to backend/.env at runtime."""
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    try:
+        # Read existing lines
+        lines = open(env_path).readlines() if os.path.exists(env_path) else []
+        key_line = f"GEMINI_API_KEY={req.gemini_api_key}\n"
+        updated = False
+        new_lines = []
+        for line in lines:
+            if line.startswith("GEMINI_API_KEY="):
+                new_lines.append(key_line)
+                updated = True
+            else:
+                new_lines.append(line)
+        if not updated:
+            new_lines.append(key_line)
+        with open(env_path, "w") as f:
+            f.writelines(new_lines)
+        # Reload env in process
+        from dotenv import load_dotenv
+        load_dotenv(override=True)
+        log.info(f"[SETTINGS] GEMINI_API_KEY updated")
+        return {"status": "saved"}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to save settings: {e}")
+
+
+@app.get("/api/settings/sample-data")
+def download_sample_data():
+    """Return a realistic sample CSV for testing."""
+    import csv, io as _io
+    from datetime import date, timedelta
+    import random
+    random.seed(42)
+    campaigns = ["Google Search", "Meta Retargeting", "LinkedIn Awareness", "Google Display"]
+    buf = _io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["date", "campaign", "impressions", "clicks", "spend", "leads", "revenue"])
+    base = date.today() - timedelta(days=60)
+    for i in range(60):
+        d = base + timedelta(days=i)
+        for camp in campaigns:
+            impr  = random.randint(8000, 40000)
+            ctr   = random.uniform(0.008, 0.035)
+            clicks = int(impr * ctr)
+            cpc   = random.uniform(0.8, 3.5)
+            spend = round(clicks * cpc, 2)
+            cvr   = random.uniform(0.04, 0.18)
+            leads = max(1, int(clicks * cvr))
+            revenue = round(leads * random.uniform(80, 400), 2)
+            w.writerow([d.isoformat(), camp, impr, clicks, spend, leads, revenue])
+    buf.seek(0)
+    from fastapi.responses import Response
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="sample_campaign_data.csv"'},
+    )
+
+
 # ── Chatbot ───────────────────────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     message: str
+
+
+@app.get("/api/chat/status")
+def chat_status():
+    from rag import _client, _COLLECTION
+    key = os.getenv("GEMINI_API_KEY", "").strip()
+    try:
+        col = _client.get_collection(_COLLECTION)
+        indexed = col.count()
+    except Exception:
+        indexed = 0
+    return {
+        "gemini_configured": bool(key),
+        "rag_documents_indexed": indexed,
+        "ready": indexed > 0,
+    }
 
 
 @app.post("/api/chat")
 def chat_endpoint(req: ChatRequest):
     if not req.message.strip():
         raise HTTPException(400, "Message cannot be empty.")
+    log.info(f"[MAIN] /api/chat received: '{req.message[:80]}'")
     reply = chatbot_chat(req.message.strip())
+    log.info(f"[MAIN] /api/chat reply: '{reply[:80]}'")
     return {"reply": reply, "history": get_history()}
 
 

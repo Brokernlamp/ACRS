@@ -1,91 +1,112 @@
-"""
-Chatbot — uses RAG context + Gemini to answer marketing analytics questions.
-Maintains per-session conversation history (in-memory list).
-"""
-
-from typing import Optional
-from config import config
+import os
+import logging
+from dotenv import load_dotenv
 from rag import query_rag
 
-# Conversation history: list of {"role": "user"|"model", "parts": [str]}
+log = logging.getLogger("chatbot")
+
+MODEL = "gemini-2.5-flash-lite"
+
+_SYSTEM_PROMPT = (
+    "You are an expert marketing analytics AI assistant for an agency platform called AI Growth Operator. "
+    "You have access to the client's real campaign data, KPIs, predictions, budget recommendations, and performance insights. "
+    "Answer questions clearly and concisely. Always ground your answers in the provided data context. "
+    "If the data doesn't contain enough information to answer, say so honestly. "
+    "Format numbers clearly (e.g. $1,234.56, 3.2%, 450 leads)."
+)
+
+# History: [{"role": "user"|"model", "parts": [{"text": "..."}]}]
 _history: list[dict] = []
 
-_SYSTEM_PROMPT = """You are an expert marketing analytics AI assistant for an agency platform called AI Growth Operator.
-You have access to the client's real campaign data, KPIs, predictions, budget recommendations, and performance insights.
-Answer questions clearly and concisely. Always ground your answers in the provided data context.
-If the data doesn't contain enough information to answer, say so honestly.
-Format numbers clearly (e.g. $1,234.56, 3.2%, 450 leads).
-"""
 
-
-def _get_model():
-    try:
-        import google.generativeai as genai
-        if not config.GEMINI_API_KEY:
-            return None
-        genai.configure(api_key=config.GEMINI_API_KEY)
-        return genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=_SYSTEM_PROMPT,
-        )
-    except Exception:
-        return None
+def _api_key() -> str:
+    load_dotenv(override=True)
+    key = os.getenv("GEMINI_API_KEY", "").strip()
+    log.debug(f"[CHATBOT] API key present: {bool(key)} (length={len(key)})")
+    return key
 
 
 def chat(user_message: str) -> str:
-    """
-    Send a message, retrieve RAG context, call Gemini, return assistant reply.
-    Maintains conversation history across calls.
-    """
-    # Retrieve relevant data context
+    log.info(f"[CHATBOT] chat() called — message='{user_message[:80]}'")
+
+    # Step 1: RAG
+    log.info("[CHATBOT] Step 1: querying RAG index")
     context = query_rag(user_message, n_results=8)
-
-    # Build the augmented message
     if context:
-        augmented = (
-            f"[Relevant campaign data context]\n{context}\n\n"
-            f"[User question]\n{user_message}"
-        )
+        log.info(f"[CHATBOT] RAG returned {len(context.splitlines())} chunks ({len(context)} chars)")
     else:
-        augmented = user_message
+        log.warning("[CHATBOT] RAG returned no context — answering without data")
 
-    model = _get_model()
+    augmented = (
+        f"[Relevant campaign data context]\n{context}\n\n[User question]\n{user_message}"
+        if context else user_message
+    )
 
-    if model is None:
-        # Fallback: rule-based response when no API key
-        _history.append({"role": "user", "parts": [user_message]})
+    # Step 2: API key check
+    key = _api_key()
+    if not key:
+        log.warning("[CHATBOT] No GEMINI_API_KEY — using fallback")
         reply = _fallback(user_message, context)
-        _history.append({"role": "model", "parts": [reply]})
+        _append(user_message, reply)
         return reply
 
+    # Step 3: Call Gemini via new google-genai SDK
+    log.info(f"[CHATBOT] Step 3: calling Gemini model={MODEL}")
     try:
-        chat_session = model.start_chat(history=_history.copy())
-        response = chat_session.send_message(augmented)
-        reply = response.text.strip()
-    except Exception as e:
-        reply = f"I encountered an error calling the AI model: {str(e)}. Please check your GEMINI_API_KEY."
+        from google import genai
+        from google.genai import types
 
-    _history.append({"role": "user", "parts": [user_message]})
-    _history.append({"role": "model", "parts": [reply]})
+        client = genai.Client(api_key=key)
+
+        contents = []
+        for h in _history:
+            contents.append(types.Content(
+                role=h["role"],
+                parts=[types.Part(text=h["parts"][0]["text"])]
+            ))
+        contents.append(types.Content(
+            role="user",
+            parts=[types.Part(text=augmented)]
+        ))
+
+        log.info(f"[CHATBOT] Sending {len(contents)} content entries to Gemini")
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=_SYSTEM_PROMPT,
+                temperature=0.3,
+            ),
+        )
+        reply = response.text.strip()
+        log.info(f"[CHATBOT] Gemini replied ({len(reply)} chars)")
+    except Exception as e:
+        log.error(f"[CHATBOT] Gemini FAILED: {type(e).__name__}: {e}")
+        reply = f"Gemini error: {type(e).__name__}: {e}"
+
+    _append(user_message, reply)
     return reply
 
 
+def _append(user_msg: str, model_reply: str) -> None:
+    _history.append({"role": "user",  "parts": [{"text": user_msg}]})
+    _history.append({"role": "model", "parts": [{"text": model_reply}]})
+    log.debug(f"[CHATBOT] History now has {len(_history)} entries")
+
+
 def reset_history() -> None:
-    """Clear conversation history."""
     _history.clear()
+    log.info("[CHATBOT] History cleared")
 
 
 def get_history() -> list[dict]:
-    return [{"role": h["role"], "content": h["parts"][0]} for h in _history]
+    return [{"role": h["role"], "content": h["parts"][0]["text"]} for h in _history]
 
 
 def _fallback(question: str, context: str) -> str:
-    """Simple rule-based fallback when Gemini is unavailable."""
-    q = question.lower()
     if context:
-        if any(w in q for w in ["best", "top", "highest"]):
-            return f"Based on your data:\n{context[:500]}\n\nPlease add a GEMINI_API_KEY to .env for full AI responses."
-        if any(w in q for w in ["worst", "lowest", "poor"]):
-            return f"Based on your data:\n{context[:500]}\n\nPlease add a GEMINI_API_KEY to .env for full AI responses."
-        return f"Here's what I found in your data:\n\n{context[:600]}\n\n⚠️ Add GEMINI_API_KEY to .env for intelligent AI responses."
-    return "No campaign data is loaded yet. Please upload a CSV or connect an API first."
+        return (
+            f"Here's what I found in your campaign data:\n\n{context[:800]}\n\n"
+            "⚠️ Add GEMINI_API_KEY to backend/.env for full AI-powered responses."
+        )
+    return "No campaign data loaded yet. Upload a CSV on the Dashboard first."

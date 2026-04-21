@@ -44,6 +44,9 @@ def optimal_budget_allocation(camp_scored: pd.DataFrame, total_budget: float) ->
     else:
         df["budget_share_pct"] = (df["score"] / total_score * 100).round(1)
         df["recommended_budget"] = (df["score"] / total_score * total_budget).round(2)
+    # Keep current spend for comparison chart
+    if "spend" not in df.columns:
+        df["spend"] = 0.0
     return df
 
 

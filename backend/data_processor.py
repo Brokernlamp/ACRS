@@ -15,12 +15,25 @@ def compute_kpis(df: pd.DataFrame) -> pd.DataFrame:
 def summary_kpis(df: pd.DataFrame) -> dict:
     try:
         if df.empty:
-            return {"Total Spend": "$0.00", "Total Leads": 0, "Avg CTR (%)": 0.0, "Avg CPL ($)": 0.0}
+            return {
+                "Total Spend": "$0.00", "Total Leads": 0, "Total Clicks": 0,
+                "Total Impressions": 0, "Blended CPL ($)": 0.0,
+                "Weighted CTR (%)": 0.0, "Conversion Rate (%)": 0.0, "ROAS": 0.0,
+            }
+        total_spend = df["spend"].sum()
+        total_leads = df["leads"].sum()
+        total_clicks = df["clicks"].sum()
+        total_impressions = df["impressions"].sum()
+        total_revenue = df["revenue"].sum() if "revenue" in df.columns else 0.0
         return {
-            "Total Spend": f"${df['spend'].sum():,.2f}",
-            "Total Leads": int(df["leads"].sum()),
-            "Avg CTR (%)": round(df["ctr"].mean(), 2) if not df["ctr"].isna().all() else 0.0,
-            "Avg CPL ($)": round(df["cpl"].mean(), 2) if not df["cpl"].isna().all() else 0.0,
+            "Total Spend": f"${total_spend:,.2f}",
+            "Total Leads": int(total_leads),
+            "Total Clicks": int(total_clicks),
+            "Total Impressions": int(total_impressions),
+            "Blended CPL ($)": round(total_spend / total_leads, 2) if total_leads else 0.0,
+            "Weighted CTR (%)": round((total_clicks / total_impressions) * 100, 2) if total_impressions else 0.0,
+            "Conversion Rate (%)": round((total_leads / total_clicks) * 100, 2) if total_clicks else 0.0,
+            "ROAS": round(total_revenue / total_spend, 2) if total_spend and total_revenue else 0.0,
         }
     except Exception as e:
         raise ValueError(f"Error computing summary KPIs: {str(e)}")

@@ -1,91 +1,58 @@
-# AI Growth Operator
-
-Marketing analytics platform for agencies — predictive insights, budget optimization, AI chatbot, automated reporting.
+# AI Growth Operator — Project Doc
 
 ## Stack
-
 | Layer | Tech |
 |---|---|
 | Frontend | Next.js 16, TypeScript, Tailwind CSS |
 | Backend | FastAPI, Python 3.10+ |
 | Database | SQLite (dev) / PostgreSQL (prod) |
-| AI | Google Gemini 1.5 Flash |
-| RAG | ChromaDB + sentence-transformers (all-MiniLM-L6-v2) |
-| Charts | Plotly |
+| AI | Google Gemini 2.0 Flash Lite |
+| RAG | ChromaDB + all-MiniLM-L6-v2 |
+| Charts | Plotly → PNG |
 | PDFs | ReportLab |
 
 ## Quick Start
-
-**Requirements:** Python 3.10+, Node.js 18+
-
 ```bash
-git clone <repo-url>
-cd ACRS
-
-# 1. Run setup (one time)
 chmod +x setup.sh dev.sh
-./setup.sh
-
-# 2. Add your Gemini API key (optional — enables AI chatbot)
-# Edit backend/.env → GEMINI_API_KEY=your-key-here
-
-# 3. Start
-./dev.sh
+./setup.sh          # one-time
+./dev.sh            # start both servers
 ```
+Open http://localhost:3000
 
-Open **http://localhost:3000**
-
-## Features
-
-| Page | What it does |
-|---|---|
-| Dashboard | Upload CSV, view KPIs and charts |
-| AI Growth Engine | Predictions, budget recommendations, scenario simulator |
-| Clients | Manage multiple clients |
-| Reports & Email | Download PDF reports, send via email |
-| AI Chatbot | Ask questions about your data in natural language |
+## Env Variables (backend/.env)
+| Variable | Required | Notes |
+|---|---|---|
+| DATABASE_URL | Yes | sqlite:///./acrs.db or postgres:// |
+| JWT_SECRET_KEY | Yes | random string |
+| SECRET_KEY | Yes | random string |
+| GEMINI_API_KEY | No | enables AI chatbot |
+| SMTP_USER / SMTP_PASSWORD | No | Gmail for email reports |
 
 ## CSV Format
-
-```csv
+```
 date,campaign,impressions,clicks,spend,leads
 2024-01-01,Campaign A,50000,600,320.50,45
-2024-01-01,Campaign B,30000,180,150.00,12
 ```
-
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | Yes | `sqlite:///./acrs.db` or PostgreSQL URL |
-| `JWT_SECRET_KEY` | Yes | Random secret for JWT tokens |
-| `SECRET_KEY` | Yes | App secret key |
-| `GEMINI_API_KEY` | No | Enables AI chatbot ([get one here](https://makersuite.google.com/app/apikey)) |
-| `SMTP_USER` | No | Gmail address for email reports |
-| `SMTP_PASSWORD` | No | Gmail App Password |
 
 ## Project Structure
-
 ```
 ACRS/
-├── backend/          # FastAPI + all Python logic
-│   ├── main.py       # API endpoints
-│   ├── rag.py        # ChromaDB vector store
-│   ├── chatbot.py    # Gemini chat with RAG
+├── backend/        # FastAPI — all logic + API
+│   ├── main.py     # all endpoints
+│   ├── rag.py      # ChromaDB indexer
+│   ├── chatbot.py  # Gemini chat
 │   ├── intelligence.py
 │   ├── data_processor.py
 │   ├── visualizer.py
 │   ├── report_generator.py
 │   └── database/
-├── frontend/         # Next.js app
-│   ├── app/
-│   │   ├── page.tsx          # Dashboard
-│   │   ├── ai-engine/        # AI Growth Engine
-│   │   ├── clients/          # Client management
-│   │   ├── reports/          # Reports & Email
-│   │   └── chatbot/          # AI Chatbot
-│   ├── components/
-│   └── lib/
-├── setup.sh          # One-time setup
-└── dev.sh            # Start both servers
+├── frontend/       # Next.js
+│   └── app/
+│       ├── page.tsx          # Dashboard
+│       ├── ai-engine/        # AI Growth Engine
+│       ├── clients/          # Client management
+│       ├── reports/          # PDF + Email
+│       └── chatbot/          # AI Chatbot
+├── setup.sh
+└── dev.sh
 ```

@@ -1,38 +1,55 @@
-"""
-RAG engine — builds an in-memory ChromaDB collection from campaign data
-and retrieves the most relevant chunks for a user query.
-
-The collection is rebuilt every time new data is loaded (upload / refresh).
-Embeddings use a local HuggingFace model — no API key needed.
-"""
-
 import hashlib
-from typing import Optional
+import logging
 import pandas as pd
 import chromadb
 from chromadb.utils import embedding_functions
 
-# Singleton in-memory client — lives for the process lifetime
-_client = chromadb.Client()
+log = logging.getLogger("rag")
+
 _COLLECTION = "campaign_data"
-_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-    model_name="all-MiniLM-L6-v2"
-)
+
+# ── ChromaDB client ───────────────────────────────────────────────────────────
+try:
+    _client = chromadb.EphemeralClient()
+    log.info("[RAG] ChromaDB EphemeralClient initialised")
+except AttributeError:
+    _client = chromadb.Client()
+    log.info("[RAG] ChromaDB Client (legacy) initialised")
+except Exception as e:
+    log.error(f"[RAG] ChromaDB init FAILED: {e}")
+    raise
+
+# ── Embedding function ────────────────────────────────────────────────────────
+try:
+    _ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name="all-MiniLM-L6-v2"
+    )
+    log.info("[RAG] SentenceTransformer embedding function loaded")
+except Exception as e:
+    log.error(f"[RAG] Embedding function init FAILED: {e}")
+    raise
 
 
 def _get_or_create() -> chromadb.Collection:
     try:
-        return _client.get_collection(_COLLECTION, embedding_function=_ef)
+        col = _client.get_collection(_COLLECTION, embedding_function=_ef)
+        log.debug(f"[RAG] Got existing collection '{_COLLECTION}' ({col.count()} docs)")
+        return col
     except Exception:
-        return _client.create_collection(_COLLECTION, embedding_function=_ef)
+        col = _client.create_collection(_COLLECTION, embedding_function=_ef)
+        log.info(f"[RAG] Created new collection '{_COLLECTION}'")
+        return col
 
 
 def _reset() -> chromadb.Collection:
     try:
         _client.delete_collection(_COLLECTION)
+        log.info(f"[RAG] Deleted old collection '{_COLLECTION}'")
     except Exception:
         pass
-    return _client.create_collection(_COLLECTION, embedding_function=_ef)
+    col = _client.create_collection(_COLLECTION, embedding_function=_ef)
+    log.info(f"[RAG] Created fresh collection '{_COLLECTION}'")
+    return col
 
 
 def _doc_id(text: str) -> str:
@@ -50,18 +67,15 @@ def build_index(
     allocation: list,
     predictions: dict,
 ) -> None:
-    """
-    Convert all analytics data into text chunks and index them into ChromaDB.
-    Called after every upload / refresh so the chatbot always has fresh context.
-    """
+    log.info(f"[RAG] build_index called — df rows={len(df)}, campaigns={len(camp_summary)}")
     col = _reset()
     docs, ids = [], []
 
-    # ── KPI summary ──────────────────────────────────────────────────────────
+    # KPI summary
     kpi_text = "Overall KPI Summary: " + ", ".join(f"{k}: {v}" for k, v in kpis.items())
     docs.append(kpi_text); ids.append(_doc_id(kpi_text))
 
-    # ── Per-campaign daily rows ───────────────────────────────────────────────
+    # Daily rows
     for _, row in df.iterrows():
         text = (
             f"Campaign '{row['campaign']}' on {row['date']}: "
@@ -74,7 +88,7 @@ def build_index(
         )
         docs.append(text); ids.append(_doc_id(text))
 
-    # ── Campaign aggregate summary ────────────────────────────────────────────
+    # Campaign aggregates
     for _, row in camp_summary.iterrows():
         text = (
             f"Campaign aggregate for '{row['campaign']}': "
@@ -86,19 +100,13 @@ def build_index(
         )
         docs.append(text); ids.append(_doc_id(text))
 
-    # ── Insights ──────────────────────────────────────────────────────────────
     for ins in insights:
         docs.append(f"Insight: {ins}"); ids.append(_doc_id(ins))
-
-    # ── Recommended actions ───────────────────────────────────────────────────
     for act in actions:
         docs.append(f"Recommended action: {act}"); ids.append(_doc_id(act))
-
-    # ── Patterns ──────────────────────────────────────────────────────────────
     for pat in patterns:
         docs.append(f"Detected pattern: {pat}"); ids.append(_doc_id(pat))
 
-    # ── Waste / financial impact ──────────────────────────────────────────────
     waste_text = (
         f"Financial impact: estimated wasted spend=${waste.get('total_wasted', 0):.2f}, "
         f"worst campaign='{waste.get('worst_campaign', 'N/A')}', "
@@ -106,7 +114,6 @@ def build_index(
     )
     docs.append(waste_text); ids.append(_doc_id(waste_text))
 
-    # ── Budget allocation ─────────────────────────────────────────────────────
     for row in allocation:
         text = (
             f"Budget allocation for '{row.get('campaign')}': "
@@ -116,7 +123,6 @@ def build_index(
         )
         docs.append(text); ids.append(_doc_id(text))
 
-    # ── Predictions ───────────────────────────────────────────────────────────
     pred_text = (
         f"7-day predictions: expected leads={predictions.get('predicted_leads', 0)}, "
         f"trend={predictions.get('trend', 'N/A')}, "
@@ -124,29 +130,40 @@ def build_index(
     )
     docs.append(pred_text); ids.append(_doc_id(pred_text))
 
-    # Deduplicate by id
+    # Deduplicate
     seen, unique_docs, unique_ids = set(), [], []
     for d, i in zip(docs, ids):
         if i not in seen:
             seen.add(i); unique_docs.append(d); unique_ids.append(i)
 
-    # Batch upsert
+    log.info(f"[RAG] Upserting {len(unique_docs)} unique documents into ChromaDB")
     BATCH = 100
     for start in range(0, len(unique_docs), BATCH):
-        col.upsert(
-            documents=unique_docs[start:start + BATCH],
-            ids=unique_ids[start:start + BATCH],
-        )
+        try:
+            col.upsert(
+                documents=unique_docs[start:start + BATCH],
+                ids=unique_ids[start:start + BATCH],
+            )
+        except Exception as e:
+            log.error(f"[RAG] Upsert batch {start}–{start+BATCH} FAILED: {e}")
+            raise
+
+    log.info(f"[RAG] Index built successfully — {col.count()} documents indexed")
 
 
 def query_rag(question: str, n_results: int = 6) -> str:
-    """Return the top-n most relevant text chunks for a question."""
     try:
         col = _get_or_create()
-        if col.count() == 0:
+        count = col.count()
+        log.info(f"[RAG] query_rag called — collection has {count} docs, question='{question[:60]}'")
+        if count == 0:
+            log.warning("[RAG] Collection is empty — no context will be returned")
             return ""
-        results = col.query(query_texts=[question], n_results=min(n_results, col.count()))
+        n = min(n_results, count)
+        results = col.query(query_texts=[question], n_results=n)
         chunks = results.get("documents", [[]])[0]
+        log.info(f"[RAG] Retrieved {len(chunks)} chunks")
         return "\n".join(chunks)
-    except Exception:
+    except Exception as e:
+        log.error(f"[RAG] query_rag FAILED: {e}")
         return ""

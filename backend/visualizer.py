@@ -79,18 +79,27 @@ def chart_performance_scores(scored: pd.DataFrame):
 
 
 def chart_budget_allocation(alloc: pd.DataFrame):
+    """Current spend vs recommended budget side-by-side bar — replaces pie chart."""
     if alloc.empty:
         raise ValueError("No data available for budget allocation chart")
-    fig = px.pie(
-        alloc,
-        names="campaign",
-        values="recommended_budget",
-        title="Recommended Budget Allocation",
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        name="Current Spend", x=alloc["campaign"], y=alloc["spend"] if "spend" in alloc.columns else [0]*len(alloc),
+        marker_color="#94A3B8",
+    ))
+    fig.add_trace(go.Bar(
+        name="Recommended Budget", x=alloc["campaign"], y=alloc["recommended_budget"],
+        marker_color="#4F46E5",
+        text=[f"${v:,.0f}" for v in alloc["recommended_budget"]],
+        textposition="outside",
+    ))
+    fig.update_layout(
+        title="Current Spend vs Recommended Budget",
+        barmode="group",
         template="plotly_white",
-        color_discrete_sequence=["#4F46E5", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"],
-        hole=0.4,
+        legend=dict(orientation="h", y=1.1),
+        yaxis_title="Amount ($)",
     )
-    fig.update_traces(textinfo="label+percent")
     return fig, _to_png(fig)
 
 
@@ -103,15 +112,25 @@ def chart_leads_forecast(daily: pd.DataFrame, predicted_leads: int, days_ahead: 
         raise ValueError("Invalid date data in daily trends")
     future_dates = pd.date_range(last_date + pd.Timedelta(days=1), periods=days_ahead)
     daily_pred = (predicted_leads or 0) / days_ahead
-    forecast = pd.DataFrame({"date": future_dates, "leads": [daily_pred] * days_ahead})
+    # Confidence band: ±20% around forecast
+    upper = daily_pred * 1.20
+    lower = daily_pred * 0.80
 
     fig = go.Figure()
+    # Confidence band
+    fig.add_trace(go.Scatter(
+        x=list(future_dates) + list(future_dates[::-1]),
+        y=[upper] * days_ahead + [lower] * days_ahead,
+        fill="toself", fillcolor="rgba(16,185,129,0.12)",
+        line=dict(color="rgba(0,0,0,0)"),
+        name="Confidence Range", showlegend=True,
+    ))
     fig.add_trace(go.Scatter(
         x=daily["date"], y=daily["leads"],
         name="Actual", line=dict(color="#4F46E5", width=2.5), mode="lines+markers"
     ))
     fig.add_trace(go.Scatter(
-        x=forecast["date"], y=forecast["leads"],
+        x=future_dates, y=[daily_pred] * days_ahead,
         name="Forecast", line=dict(color="#10B981", width=2, dash="dash"), mode="lines+markers"
     ))
     fig.update_layout(
