@@ -80,10 +80,6 @@ _current_user_id = 1
 _current_client_id: Optional[int] = None
 
 
-def _fig_to_b64(png: bytes) -> str:
-    return base64.b64encode(png).decode()
-
-
 def _load_data_from_db(client_id: int, start_date=None, end_date=None) -> Optional[pd.DataFrame]:
     from database.models import CampaignData, Campaign
     db = SessionLocal()
@@ -144,8 +140,8 @@ def _process_df(df: pd.DataFrame) -> dict:
 
     _state.update(
         df=df, camp=camp, daily=daily, kpis=kpis,
-        insights=insights, pngs=[json1, json2, json3],
-        intel=intel, ai_pngs=[json4, json5, json6],
+        insights=insights,
+        intel=intel,
     )
 
     # Build RAG index from fresh data
@@ -170,6 +166,7 @@ def _process_df(df: pd.DataFrame) -> dict:
         "kpis": kpis,
         "insights": insights,
         "campaigns": camp["campaign"].tolist(),
+        "camp_summary": camp.fillna(0).to_dict(orient="records"),
         "predictions": intel["leads_prediction"],
         "cpl_prediction": intel["cpl_prediction"],
         "ctr_prediction": intel["ctr_prediction"],
@@ -301,7 +298,7 @@ def download_standard_report(client_name: str = "Client"):
     pdf_bytes = generate_pdf(
         client_name=client_name, date_range=date_range,
         kpis=_state["kpis"], camp_df=_state["camp"],
-        insights=_state["insights"], chart_pngs=_state["pngs"],
+        insights=_state["insights"], chart_pngs=[],
     )
     _state["pdf_bytes"] = pdf_bytes
     return StreamingResponse(
@@ -320,8 +317,8 @@ def download_growth_report(client_name: str = "Client"):
     pdf_bytes = generate_growth_pdf(
         client_name=client_name, date_range=date_range,
         kpis=_state["kpis"], camp_df=_state["camp"],
-        insights=_state["insights"], chart_pngs=_state["pngs"],
-        intelligence=_state["intel"], ai_chart_pngs=_state["ai_pngs"],
+        insights=_state["insights"], chart_pngs=[],
+        intelligence=_state["intel"], ai_chart_pngs=[],
     )
     _state["pdf_bytes"] = pdf_bytes
     return StreamingResponse(
@@ -349,8 +346,8 @@ def send_email(req: EmailRequest):
         _state["pdf_bytes"] = generate_growth_pdf(
             client_name=req.client_name, date_range=date_range,
             kpis=_state["kpis"], camp_df=_state["camp"],
-            insights=_state["insights"], chart_pngs=_state["pngs"],
-            intelligence=_state["intel"], ai_chart_pngs=_state["ai_pngs"],
+            insights=_state["insights"], chart_pngs=[],
+            intelligence=_state["intel"], ai_chart_pngs=[],
         )
     ok, msg = send_report(req.sender_email, req.sender_password, req.recipient_email, req.client_name, _state["pdf_bytes"])
     if not ok:

@@ -44,10 +44,22 @@ export interface SimResult {
   summary: string;
 }
 
+export interface CampRow {
+  campaign: string;
+  impressions: number;
+  clicks: number;
+  spend: number;
+  leads: number;
+  ctr: number;
+  cpl: number;
+  conversion_rate: number;
+}
+
 export interface AnalyticsResult {
   kpis: KPIs;
   insights: string[];
   campaigns: string[];
+  camp_summary: CampRow[];
   predictions: Prediction;
   cpl_prediction: CplPrediction;
   ctr_prediction: CtrPrediction;

@@ -4,7 +4,6 @@ import { api } from "@/lib/api";
 import { useAppState } from "@/lib/store";
 import UploadPanel from "@/components/UploadPanel";
 import KpiCards from "@/components/KpiCards";
-import ChartImage from "@/components/ChartImage";
 import PlotlyChart from "@/components/PlotlyChart";
 import StatusBanner from "@/components/StatusBanner";
 import { RefreshCw, Loader2, Download, AlertTriangle } from "lucide-react";
@@ -125,24 +124,27 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.allocation.map((row, i) => (
-                    <tr key={i} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                      <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{row.campaign}</td>
-                      <td className="px-4 py-3 text-gray-600">—</td>
-                      <td className="px-4 py-3 text-gray-600">—</td>
-                      <td className="px-4 py-3 text-gray-600">—</td>
-                      <td className="px-4 py-3 text-gray-600">—</td>
-                      <td className="px-4 py-3 text-gray-600">—</td>
-                      <td className="px-4 py-3 text-gray-600">—</td>
-                      <td className="px-4 py-3 text-gray-600">—</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 rounded-full bg-indigo-400" style={{ width: `${(row.score / 100) * 60}px` }} />
-                          <span className="font-semibold text-indigo-700">{row.score}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {(data.camp_summary ?? data.allocation).map((row, i) => {
+                    const r = row as unknown as Record<string, number | string>;
+                    return (
+                      <tr key={i} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                        <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{r.campaign}</td>
+                        <td className="px-4 py-3 text-gray-700">{Number(r.impressions ?? 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-gray-700">{Number(r.clicks ?? 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-gray-700">${Number(r.spend ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                        <td className="px-4 py-3 text-gray-700">{Number(r.leads ?? 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-gray-700">{Number(r.ctr ?? 0).toFixed(2)}%</td>
+                        <td className="px-4 py-3 text-gray-700">${Number(r.cpl ?? 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-gray-700">{Number(r.conversion_rate ?? 0).toFixed(2)}%</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 rounded-full bg-indigo-400" style={{ width: `${((r.score as number) / 100) * 60}px` }} />
+                            <span className="font-semibold text-indigo-700">{r.score ?? "—"}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
