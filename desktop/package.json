@@ -1,0 +1,82 @@
+{
+  "name": "ai-growth-operator",
+  "version": "1.0.0",
+  "description": "Marketing analytics platform for agencies",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "dev": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.0"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.0"
+  },
+  "build": {
+    "appId": "com.aigrowthoperator.app",
+    "productName": "AI Growth Operator",
+    "copyright": "Copyright © 2025",
+    "directories": {
+      "output": "../dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "splash.html",
+      "assets/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "app/backend",
+        "filter": [
+          "**/*",
+          "!.venv/**",
+          "!__pycache__/**",
+          "!*.pyc",
+          "!.env",
+          "!acrs.db"
+        ]
+      },
+      {
+        "from": "../frontend",
+        "to": "app/frontend",
+        "filter": [
+          "**/*",
+          "!node_modules/**",
+          "!.next/cache/**"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AI Growth Operator"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    }
+  }
+}
