@@ -440,22 +440,7 @@ def create_group(req: CampaignGroupRequest):
         db.close()
 
 
-@app.get("/api/campaign-groups/{client_id}")
-def list_groups(client_id: int):
-    db = SessionLocal()
-    try:
-        groups = get_campaign_groups(db, client_id)
-        return [
-            {"id": g.id, "name": g.name, "objective": g.objective,
-             "description": g.description,
-             "campaign_count": len([c for c in g.campaigns if c.is_active])}
-            for g in groups
-        ]
-    finally:
-        db.close()
-
-
-@app.post("/api/campaign-groups/assign")
+@app.post("/api/campaign-groups/assign-campaign")
 def assign_to_group(req: AssignCampaignRequest):
     db = SessionLocal()
     try:
@@ -467,7 +452,7 @@ def assign_to_group(req: AssignCampaignRequest):
         db.close()
 
 
-@app.get("/api/campaign-groups/performance/{group_id}")
+@app.get("/api/group-performance/{group_id}")
 def group_performance(group_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None):
     from datetime import datetime as dt
     db = SessionLocal()
@@ -478,6 +463,22 @@ def group_performance(group_id: int, start_date: Optional[str] = None, end_date:
         if not result:
             raise HTTPException(404, "Group not found")
         return _safe(result)
+    finally:
+        db.close()
+
+
+# NOTE: parameterised route must come AFTER all specific /campaign-groups/* routes
+@app.get("/api/campaign-groups/{client_id}")
+def list_groups(client_id: int):
+    db = SessionLocal()
+    try:
+        groups = get_campaign_groups(db, client_id)
+        return [
+            {"id": g.id, "name": g.name, "objective": g.objective,
+             "description": g.description,
+             "campaign_count": len([c for c in g.campaigns if c.is_active])}
+            for g in groups
+        ]
     finally:
         db.close()
 
