@@ -151,6 +151,7 @@ export const api = {
     industry?: string;
     target_cpl?: number;
     monthly_budget?: number;
+    revenue_per_lead?: number;
   }): Promise<Client> =>
     request("/api/clients", {
       method: "POST",

@@ -13,6 +13,7 @@ export default function ClientsPage() {
   const [industry, setIndustry] = useState("");
   const [targetCpl, setTargetCpl] = useState("");
   const [budget, setBudget] = useState("");
+  const [revPerLead, setRevPerLead] = useState("");
   const [adding, setAdding] = useState(false);
 
   async function load() {
@@ -32,9 +33,10 @@ export default function ClientsPage() {
         name: name.trim(), industry: industry || undefined,
         target_cpl: targetCpl ? Number(targetCpl) : undefined,
         monthly_budget: budget ? Number(budget) : undefined,
+        revenue_per_lead: revPerLead ? Number(revPerLead) : undefined,
       });
       setSuccess(`Client "${name}" added successfully.`);
-      setName(""); setIndustry(""); setTargetCpl(""); setBudget("");
+      setName(""); setIndustry(""); setTargetCpl(""); setBudget(""); setRevPerLead("");
       await load();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to add client");
@@ -93,6 +95,7 @@ export default function ClientsPage() {
             { label: "Industry", value: industry, set: setIndustry, placeholder: "SaaS" },
             { label: "Target CPL ($)", value: targetCpl, set: setTargetCpl, placeholder: "50" },
             { label: "Monthly Budget ($)", value: budget, set: setBudget, placeholder: "10000" },
+            { label: "Revenue per Lead ($)", value: revPerLead, set: setRevPerLead, placeholder: "500" },
           ].map(({ label, value, set, placeholder }) => (
             <div key={label}>
               <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>

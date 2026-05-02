@@ -386,6 +386,7 @@ class NewClientRequest(BaseModel):
     industry: Optional[str] = "Unknown"
     target_cpl: Optional[float] = None
     monthly_budget: Optional[float] = None
+    revenue_per_lead: Optional[float] = None
 
 
 @app.post("/api/clients")
@@ -399,8 +400,13 @@ def add_client(req: NewClientRequest):
             raise HTTPException(409, f"Client '{req.name}' already exists.")
         client = create_client(
             db, user_id=_current_user_id, name=req.name,
-            industry=req.industry, target_cpl=req.target_cpl, monthly_budget=req.monthly_budget,
+            industry=req.industry, target_cpl=req.target_cpl,
+            monthly_budget=req.monthly_budget,
         )
+        if req.revenue_per_lead is not None:
+            client.revenue_per_lead = req.revenue_per_lead
+            db.commit()
+            db.refresh(client)
         return {"id": client.id, "name": client.name, "industry": client.industry}
     finally:
         db.close()
@@ -536,33 +542,36 @@ def get_settings():
 
 class SettingsUpdateRequest(BaseModel):
     gemini_api_key: str = ""
+    groq_api_key: str = ""
 
 
 @app.post("/api/settings")
 def update_settings(req: SettingsUpdateRequest):
-    """Update GEMINI_API_KEY — writes to .env locally, uses os.environ in production."""
-    if req.gemini_api_key:
-        os.environ["GEMINI_API_KEY"] = req.gemini_api_key
-        # Also persist to .env file if it exists (local dev only)
+    """Update API keys — sets env var immediately, persists to .env for local dev."""
+    def _persist(key_name: str, value: str):
+        os.environ[key_name] = value
         env_path = os.path.join(os.path.dirname(__file__), ".env")
         if os.path.exists(env_path):
             try:
                 lines = open(env_path).readlines()
-                key_line = f"GEMINI_API_KEY={req.gemini_api_key}\n"
-                updated = False
-                new_lines = []
+                new_line = f"{key_name}={value}\n"
+                updated, new_lines = False, []
                 for line in lines:
-                    if line.startswith("GEMINI_API_KEY="):
-                        new_lines.append(key_line)
-                        updated = True
+                    if line.startswith(f"{key_name}="):
+                        new_lines.append(new_line); updated = True
                     else:
                         new_lines.append(line)
                 if not updated:
-                    new_lines.append(key_line)
-                with open(env_path, "w") as f:
-                    f.writelines(new_lines)
+                    new_lines.append(new_line)
+                open(env_path, "w").writelines(new_lines)
             except OSError:
-                pass  # Read-only filesystem in production — env var already set above
+                pass
+
+    if req.groq_api_key:
+        _persist("GROQ_API_KEY", req.groq_api_key)
+        log.info("[SETTINGS] GROQ_API_KEY updated")
+    if req.gemini_api_key:
+        _persist("GEMINI_API_KEY", req.gemini_api_key)
         log.info("[SETTINGS] GEMINI_API_KEY updated")
     return {"status": "saved"}
 
@@ -608,14 +617,19 @@ class ChatRequest(BaseModel):
 @app.get("/api/chat/status")
 def chat_status():
     from rag import _client, _COLLECTION
-    key = os.getenv("GEMINI_API_KEY", "").strip()
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    ai_configured = bool(groq_key or gemini_key)
+    active_provider = "groq" if groq_key else ("gemini" if gemini_key else "none")
     try:
         col = _client.get_collection(_COLLECTION)
         indexed = col.count()
     except Exception:
         indexed = 0
     return {
-        "gemini_configured": bool(key),
+        "gemini_configured": bool(gemini_key),
+        "ai_configured": ai_configured,
+        "active_provider": active_provider,
         "rag_documents_indexed": indexed,
         "ready": indexed > 0,
     }
