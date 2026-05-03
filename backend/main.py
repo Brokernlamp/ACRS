@@ -192,7 +192,6 @@ def _process_df(df: pd.DataFrame) -> dict:
 # ── Upload ────────────────────────────────────────────────────────────────────
 @app.post("/api/upload")
 async def upload_csv(file: UploadFile = File(...), client_name: str = Form(...)):
-    global _current_client_id
     try:
         contents = await file.read()
         df = pd.read_csv(io.BytesIO(contents))
@@ -210,6 +209,7 @@ async def upload_csv(file: UploadFile = File(...), client_name: str = Form(...))
         client = next((c for c in get_clients_by_user(db, _current_user_id) if c.name == client_name), None)
         if not client:
             client = create_client(db, user_id=_current_user_id, name=client_name, industry="Unknown")
+        global _current_client_id
         _current_client_id = client.id
 
         df_kpi = compute_kpis(df)
@@ -249,13 +249,13 @@ class RefreshRequest(BaseModel):
 
 @app.post("/api/refresh")
 def refresh_data(req: RefreshRequest):
+    global _current_client_id
     # Use explicit client_id if provided, otherwise fall back to in-memory
     target_client_id = req.client_id or _current_client_id
     if not target_client_id:
         raise HTTPException(400, "No client selected. Upload data first.")
 
     # Update in-memory state so subsequent calls work
-    global _current_client_id
     _current_client_id = target_client_id
 
     df = _load_data_from_db(target_client_id, req.start_date, req.end_date)
@@ -683,6 +683,34 @@ def list_groups(client_id: int):
              "campaign_count": len([c for c in g.campaigns if c.is_active])}
             for g in groups
         ]
+    finally:
+        db.close()
+
+
+@app.get("/api/clients/{client_id}/data-coverage")
+def data_coverage(client_id: int):
+    """Return the date range and row count of stored data for a client."""
+    from database.models import CampaignData, Campaign
+    from sqlalchemy import func
+    db = SessionLocal()
+    try:
+        result = db.query(
+            func.min(CampaignData.date).label("earliest"),
+            func.max(CampaignData.date).label("latest"),
+            func.count(CampaignData.id).label("rows"),
+        ).join(Campaign).filter(Campaign.client_id == client_id).first()
+
+        if not result or not result.earliest:
+            return {"has_data": False, "earliest": None, "latest": None, "rows": 0, "days": 0}
+
+        days = (result.latest - result.earliest).days + 1
+        return {
+            "has_data": True,
+            "earliest": result.earliest.isoformat(),
+            "latest": result.latest.isoformat(),
+            "rows": result.rows,
+            "days": days,
+        }
     finally:
         db.close()
 

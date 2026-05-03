@@ -112,6 +112,12 @@ export const api = {
       body: JSON.stringify({ start_date: startDate, end_date: endDate, comparison_period: comparisonPeriod, client_id: clientId }),
     }),
 
+  dataCoverage: (clientId: number): Promise<{ has_data: boolean; earliest: string | null; latest: string | null; rows: number; days: number; }> =>
+    request(`/api/clients/${clientId}/data-coverage`),
+
+  syncLatest: (clientId: number): Promise<{ status: string; campaigns_added: number; total_rows: number; aggregated: Record<string, unknown> }> =>
+    request(`/api/clients/${clientId}/sync-platforms`, { method: "POST" }),
+
   simulate: (campaign: string, deltaPct: number): Promise<SimResult> =>
     request("/api/simulate", {
       method: "POST",

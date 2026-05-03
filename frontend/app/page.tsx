@@ -30,6 +30,7 @@ export default function DashboardPage() {
   const [dataSource, setDataSource] = useState<DataSource>("csv"); // default open
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClientName, setNewClientName] = useState("");
+  const [coverage, setCoverage] = useState<{ has_data: boolean; earliest: string | null; latest: string | null; rows: number; days: number } | null>(null);
 
   // CSV state
   const [file, setFile] = useState<File | null>(null);
@@ -64,6 +65,7 @@ export default function DashboardPage() {
   // When client changes, pre-fill platform IDs and auto-load existing data
   useEffect(() => {
     if (!clientId) return;
+
     // Pre-fill linked platform IDs
     req<{ google_ads_customer_id?: string; meta_ads_account_id?: string }>(
       `/api/clients/${clientId}/platform-info`
@@ -72,15 +74,29 @@ export default function DashboardPage() {
       if (info.meta_ads_account_id) setMetaId(info.meta_ads_account_id);
     }).catch(() => {});
 
-    // Auto-load existing data from DB for this client
-    setLoading(true);
-    setError(null);
-    api.refresh(startDate, endDate, "None", clientId)
-      .then(result => setData(result))
-      .catch(() => {
+    // Check what data exists for this client
+    api.dataCoverage(clientId).then(cov => {
+      setCoverage(cov);
+      if (cov.has_data && cov.earliest && cov.latest) {
+        // Set date range to match existing data
+        setStartDate(cov.earliest);
+        setEndDate(cov.latest);
+        // Auto-load
+        setLoading(true);
+        setError(null);
+        api.refresh(cov.earliest, cov.latest, "None", clientId)
+          .then(result => setData(result))
+          .catch(() => setData(null as never))
+          .finally(() => setLoading(false));
+      } else {
+        // No data yet — clear and show load options
         setData(null as never);
-      })
-      .finally(() => setLoading(false));
+        setLoading(false);
+      }
+    }).catch(() => {
+      setData(null as never);
+      setLoading(false);
+    });
   }, [clientId]);
 
   async function handleCreateClient() {
@@ -105,8 +121,9 @@ export default function DashboardPage() {
     try {
       const result = await api.upload(file, clientName.trim());
       setData(result);
-      // Refresh client list to update stats
+      // Refresh client list and coverage
       api.listClients().then(cs => setClients(cs.filter(c => c.name.trim()))).catch(() => {});
+      if (clientId) api.dataCoverage(clientId).then(setCoverage).catch(() => {});
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally { setLoading(false); }
@@ -221,6 +238,57 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* ── Data coverage banner ────────────────────────────────────────────── */}
+      {clientId && coverage && (
+        <div className={`flex items-center justify-between px-5 py-3 rounded-xl border text-sm ${
+          coverage.has_data
+            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+            : "bg-amber-50 border-amber-200 text-amber-800"
+        }`}>
+          <div className="flex items-center gap-2">
+            {coverage.has_data ? (
+              <>
+                <span className="text-emerald-500">✓</span>
+                <span>
+                  <strong>{coverage.days} days</strong> of data stored
+                  &nbsp;·&nbsp;
+                  <span className="font-mono text-xs">{coverage.earliest}</span>
+                  &nbsp;→&nbsp;
+                  <span className="font-mono text-xs">{coverage.latest}</span>
+                  &nbsp;·&nbsp;
+                  {coverage.rows} rows
+                </span>
+              </>
+            ) : (
+              <><span>⚠️</span><span>No data yet for this client. Upload a CSV or sync from platforms below.</span></>
+            )}
+          </div>
+          {coverage.has_data && googleId && (
+            <button
+              onClick={async () => {
+                setSyncing(true); setError(null);
+                try {
+                  await api.syncLatest(clientId);
+                  const cov = await api.dataCoverage(clientId);
+                  setCoverage(cov);
+                  if (cov.has_data && cov.earliest && cov.latest) {
+                    setStartDate(cov.earliest); setEndDate(cov.latest);
+                    const result = await api.refresh(cov.earliest, cov.latest, "None", clientId);
+                    setData(result);
+                  }
+                } catch (e: unknown) {
+                  setError(e instanceof Error ? e.message : "Sync failed");
+                } finally { setSyncing(false); }
+              }}
+              disabled={syncing}
+              className="flex items-center gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors">
+              {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              {syncing ? "Syncing…" : "Sync Latest"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Step 2: Data source ─────────────────────────────────────────────── */}
       {clientId && (
