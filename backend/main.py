@@ -680,6 +680,26 @@ def list_groups(client_id: int):
         db.close()
 
 
+@app.get("/api/clients/{client_id}/platform-info")
+def get_platform_info(client_id: int):
+    """Return linked platform IDs for a client."""
+    from database.crud import get_client_by_id
+    db = SessionLocal()
+    try:
+        client = get_client_by_id(db, client_id)
+        if not client:
+            raise HTTPException(404, "Client not found")
+        return {
+            "google_ads_customer_id": client.google_ads_customer_id,
+            "meta_ads_account_id": client.meta_ads_account_id,
+            "linkedin_account_id": client.linkedin_account_id,
+            "last_google_sync": client.last_google_sync.isoformat() if client.last_google_sync else None,
+            "last_meta_sync": client.last_meta_sync.isoformat() if client.last_meta_sync else None,
+        }
+    finally:
+        db.close()
+
+
 @app.get("/api/clients/{client_id}/cross-platform")
 def cross_platform_summary(client_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None):
     """The main multi-platform view — all campaigns grouped, with blended metrics and P&L."""
