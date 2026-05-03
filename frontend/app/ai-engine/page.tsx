@@ -3,10 +3,10 @@ import { useState } from "react";
 import { useAppState } from "@/lib/store";
 import PlotlyChart from "@/components/PlotlyChart";
 import { api, SimResult } from "@/lib/api";
-import { Loader2 } from "lucide-react";
+import { Loader2, Printer } from "lucide-react";
 
 export default function AiEnginePage() {
-  const { data } = useAppState();
+  const { data, clientName } = useAppState();
   const [simCampaign, setSimCampaign] = useState("");
   const [simDelta, setSimDelta] = useState(20);
   const [simResult, setSimResult] = useState<SimResult | null>(null);
@@ -14,6 +14,8 @@ export default function AiEnginePage() {
   const [simLoading, setSimLoading] = useState(false);
   const [pauseLoading, setPauseLoading] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [allSimResults, setAllSimResults] = useState<SimResult[]>([]);
 
   if (!data) {
     return (
@@ -33,7 +35,14 @@ export default function AiEnginePage() {
   async function runSim() {
     if (!simCampaign) return;
     setSimLoading(true); setSimError(null);
-    try { setSimResult(await api.simulate(simCampaign, simDelta)); }
+    try {
+      const result = await api.simulate(simCampaign, simDelta);
+      setSimResult(result);
+      setAllSimResults(prev => {
+        const filtered = prev.filter(r => !(r.campaign === result.campaign && r.action === result.action));
+        return [...filtered, result];
+      });
+    }
     catch (e: unknown) { setSimError(e instanceof Error ? e.message : "Simulation failed"); }
     finally { setSimLoading(false); }
   }
@@ -41,9 +50,32 @@ export default function AiEnginePage() {
   async function runPause() {
     if (!simCampaign) return;
     setPauseLoading(true); setSimError(null);
-    try { setPauseResult(await api.simulatePause(simCampaign)); }
+    try {
+      const result = await api.simulatePause(simCampaign);
+      setPauseResult(result);
+      setAllSimResults(prev => {
+        const filtered = prev.filter(r => !(r.campaign === result.campaign && r.action === "Pause"));
+        return [...filtered, result];
+      });
+    }
     catch (e: unknown) { setSimError(e instanceof Error ? e.message : "Simulation failed"); }
     finally { setPauseLoading(false); }
+  }
+
+  async function printSimulation() {
+    if (!allSimResults.length) return;
+    setPrintLoading(true);
+    try {
+      const blob = await api.reportSimulation(clientName || "Client", allSimResults);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${clientName || "client"}_simulation_report.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      setSimError(e instanceof Error ? e.message : "Print failed");
+    } finally { setPrintLoading(false); }
   }
 
   return (
@@ -157,7 +189,18 @@ export default function AiEnginePage() {
 
       {/* Scenario Simulator */}
       <section>
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">🧪 Scenario Simulator</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">🧪 Scenario Simulator</h2>
+          {allSimResults.length > 0 && (
+            <button
+              onClick={printSimulation}
+              disabled={printLoading}
+              className="flex items-center gap-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors">
+              {printLoading ? <Loader2 size={12} className="animate-spin" /> : <Printer size={12} />}
+              {printLoading ? "Generating…" : `Print Simulation (${allSimResults.length})`}
+            </button>
+          )}
+        </div>
         {simError && <div className="text-red-600 text-sm mb-3">⚠️ {simError}</div>}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">

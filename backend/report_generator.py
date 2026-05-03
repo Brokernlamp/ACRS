@@ -92,6 +92,91 @@ def generate_pdf(
         raise RuntimeError(f"Failed to generate PDF: {str(e)}")
 
 
+def generate_simulation_pdf(
+    client_name: str,
+    simulations: list,
+    kpis: dict,
+) -> bytes:
+    try:
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+        s = _styles()
+        story = []
+
+        story.append(Paragraph("Budget Simulation Report", s["Brand"]))
+        story.append(Paragraph(f"Client: {client_name or 'N/A'}  |  Generated: {date.today().strftime('%B %d, %Y')}", s["Sub"]))
+        story.append(HRFlowable(width="100%", thickness=1, color=BRAND, spaceAfter=12))
+
+        # Current KPIs snapshot
+        if kpis:
+            story.append(Paragraph("Current Performance Snapshot", s["SectionHead"]))
+            kpi_data = [["Metric", "Current Value"]] + [[k, str(v)] for k, v in kpis.items()]
+            t = Table(kpi_data, colWidths=[9*cm, 7*cm])
+            t.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), BRAND),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [LIGHT, colors.white]),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.lightgrey),
+                ("PADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(t)
+            story.append(Spacer(1, 0.5*cm))
+
+        # Simulation results
+        story.append(Paragraph("Simulation Results", s["SectionHead"]))
+        story.append(Paragraph(
+            "The table below shows the projected impact of each budget change scenario on spend, leads, and cost per lead.",
+            s["Insight"]
+        ))
+        story.append(Spacer(1, 0.3*cm))
+
+        sim_data = [["Campaign", "Action", "Spend Change", "Leads Change", "CPL Change", "Summary"]]
+        for sim in simulations:
+            spend = sim.get("spend_change", 0)
+            leads = sim.get("leads_change", 0)
+            cpl = sim.get("cpl_change", 0)
+            sim_data.append([
+                sim.get("campaign", ""),
+                sim.get("action", ""),
+                f"+${spend:,.2f}" if spend >= 0 else f"-${abs(spend):,.2f}",
+                f"+{leads}" if leads >= 0 else str(leads),
+                f"+${cpl:.2f}" if cpl >= 0 else f"-${abs(cpl):.2f}",
+                sim.get("summary", ""),
+            ])
+
+        st = Table(sim_data, colWidths=[3.5*cm, 3.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 0*cm], repeatRows=1)
+        # Last column (summary) gets remaining width
+        st = Table(sim_data, repeatRows=1)
+        st.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), BRAND),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [LIGHT, colors.white]),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.lightgrey),
+            ("PADDING", (0, 0), (-1, -1), 5),
+            ("WORDWRAP", (5, 1), (5, -1), True),
+        ]))
+        story.append(st)
+        story.append(Spacer(1, 0.5*cm))
+
+        story.append(Paragraph("How to read this report", s["SectionHead"]))
+        for note in [
+            "• Spend Change: how much more or less you will spend with this budget adjustment.",
+            "• Leads Change: projected increase or decrease in leads based on historical conversion rates.",
+            "• CPL Change: how cost-per-lead shifts — a positive number means leads get more expensive.",
+            "• These are projections based on your historical data. Actual results may vary.",
+        ]:
+            story.append(Paragraph(note, s["Insight"]))
+
+        doc.build(story)
+        return buf.getvalue()
+    except Exception as e:
+        raise RuntimeError(f"Failed to generate simulation PDF: {str(e)}")
+
+
 def generate_growth_pdf(
     client_name: str,
     date_range: str,

@@ -188,5 +188,14 @@ export const api = {
       body: JSON.stringify({ gemini_api_key }),
     }),
 
+  reportSimulationUrl: () => `${BASE}/api/report/simulation`,
+
+  reportSimulation: (clientName: string, simulations: SimResult[]): Promise<Blob> =>
+    fetch(`${BASE}/api/report/simulation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_name: clientName, simulations }),
+    }).then(r => { if (!r.ok) throw new Error("Failed to generate report"); return r.blob(); }),
+
   sampleDataUrl: () => `${BASE}/api/settings/sample-data`,
 };

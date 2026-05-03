@@ -769,6 +769,29 @@ def list_client_campaigns(client_id: int):
         db.close()
 
 
+# ── Simulation Report ───────────────────────────────────────────────────────
+class SimReportRequest(BaseModel):
+    client_name: str
+    simulations: list  # list of SimResult dicts
+
+
+@app.post("/api/report/simulation")
+def download_simulation_report(req: SimReportRequest):
+    from report_generator import generate_simulation_pdf
+    if not req.simulations:
+        raise HTTPException(400, "No simulation results provided.")
+    pdf_bytes = generate_simulation_pdf(
+        client_name=req.client_name,
+        simulations=req.simulations,
+        kpis=_state.get("kpis", {}),
+    )
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{req.client_name}_simulation_report.pdf"'},
+    )
+
+
 # ── Settings ─────────────────────────────────────────────────────────────────
 @app.get("/api/settings")
 def get_settings():
