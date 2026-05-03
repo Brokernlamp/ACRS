@@ -11,12 +11,13 @@ const CARDS = [
   { key: "ROAS",                icon: "📈", accent: "border-rose-400",    sub: "Revenue ÷ spend" },
 ] as const;
 
-function fmt(key: string, val: number | string): string {
+function fmt(key: string, val: number | string | undefined): string {
+  if (val === undefined || val === null) return "—";
   if (typeof val === "string") return val;
   if (key === "ROAS") return val === 0 ? "N/A" : `${val.toFixed(2)}x`;
   if (key.includes("₹")) return `₹${val.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
   if (key.includes("%")) return `${val.toFixed(2)}%`;
-  return val.toLocaleString();
+  return val.toLocaleString("en-IN");
 }
 
 export default function KpiCards({ kpis }: { kpis: KPIs }) {

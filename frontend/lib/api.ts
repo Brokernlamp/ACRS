@@ -5,7 +5,7 @@ export interface KPIs {
   "Total Leads": number;
   "Total Clicks": number;
   "Total Impressions": number;
-  "Blended CPL ($)": number;
+  "Blended CPL (₹)": number;
   "Weighted CTR (%)": number;
   "Conversion Rate (%)": number;
   "ROAS": number;
