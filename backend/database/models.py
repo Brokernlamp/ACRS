@@ -30,7 +30,13 @@ class Client(Base):
     industry = Column(String(100))
     target_cpl = Column(Numeric(10, 2))
     monthly_budget = Column(Numeric(10, 2))
-    revenue_per_lead = Column(Numeric(10, 2))  # enables P&L calculation
+    revenue_per_lead = Column(Numeric(10, 2))
+    # Platform linking
+    google_ads_customer_id = Column(String(100))
+    meta_ads_account_id = Column(String(100))
+    linkedin_account_id = Column(String(100))
+    last_google_sync = Column(DateTime)
+    last_meta_sync = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     user = relationship("User", back_populates="clients")
@@ -67,6 +73,9 @@ class Campaign(Base):
     campaign_name = Column(String(255), nullable=False)
     platform = Column(String(50), default="manual")  # google_ads | meta_ads | linkedin | manual
     platform_campaign_id = Column(String(255))
+    platform_account_id = Column(String(100))
+    is_auto_synced = Column(Boolean, default=False)
+    synced_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     client = relationship("Client", back_populates="campaigns")

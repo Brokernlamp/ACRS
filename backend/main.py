@@ -431,7 +431,182 @@ def delete_client_endpoint(client_id: int):
 # ── Health ────────────────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "demo_mode": os.getenv("DEMO_MODE", "true").lower() == "true"}
+
+
+# ── Demo / Multi-platform sync ─────────────────────────────────────────────────────
+@app.get("/api/demo/clients")
+def demo_clients():
+    """List all available demo clients."""
+    from mock_ads_api import get_mock_clients_list
+    return get_mock_clients_list()
+
+
+@app.get("/api/demo/multi-platform-sync")
+def demo_multi_platform_sync(
+    google_customer_id: str = "1234567890",
+    meta_account_id: str = "act_111222333",
+    days: int = 30,
+):
+    """
+    Demo endpoint — returns merged Google + Meta campaign data without real credentials.
+    Uses realistic mock data matching actual API response structures.
+    """
+    from platform_integrations import fetch_google_ads_campaigns, fetch_meta_ads_campaigns
+    from platform_merger import merge_platform_campaigns
+
+    google_camps = fetch_google_ads_campaigns(google_customer_id, days=days)
+    meta_camps = fetch_meta_ads_campaigns(meta_account_id, days=days)
+    merged = merge_platform_campaigns("Demo Client", [google_camps, meta_camps])
+    return _safe(merged)
+
+
+# ── Platform linking & syncing ─────────────────────────────────────────────────────
+class LinkPlatformsRequest(BaseModel):
+    google_account_id: Optional[str] = None
+    meta_account_id: Optional[str] = None
+    linkedin_account_id: Optional[str] = None
+
+
+@app.post("/api/clients/{client_id}/link-platforms")
+def link_platforms(client_id: int, req: LinkPlatformsRequest):
+    """Store platform account IDs on a client record."""
+    db = SessionLocal()
+    try:
+        from database.crud import get_client_by_id
+        client = get_client_by_id(db, client_id)
+        if not client:
+            raise HTTPException(404, "Client not found")
+        if req.google_account_id:
+            client.google_ads_customer_id = req.google_account_id
+        if req.meta_account_id:
+            client.meta_ads_account_id = req.meta_account_id
+        if req.linkedin_account_id:
+            client.linkedin_account_id = req.linkedin_account_id
+        db.commit()
+        return {
+            "client_id": client_id,
+            "google_linked": bool(client.google_ads_customer_id),
+            "meta_linked": bool(client.meta_ads_account_id),
+            "linkedin_linked": bool(client.linkedin_account_id),
+        }
+    finally:
+        db.close()
+
+
+@app.post("/api/clients/{client_id}/sync-platforms")
+def sync_platforms(client_id: int, days: int = 30):
+    """
+    Fetch latest campaigns from all linked platforms, merge, and save to DB.
+    Uses demo mode if DEMO_MODE=true or no real tokens available.
+    """
+    from platform_integrations import fetch_google_ads_campaigns, fetch_meta_ads_campaigns
+    from platform_merger import merge_platform_campaigns
+    from database.crud import get_client_by_id
+    from database.models import Campaign as CampaignModel
+
+    db = SessionLocal()
+    try:
+        client = get_client_by_id(db, client_id)
+        if not client:
+            raise HTTPException(404, "Client not found")
+
+        all_camps: list[list[dict]] = []
+
+        if client.google_ads_customer_id:
+            g = fetch_google_ads_campaigns(client.google_ads_customer_id, days=days)
+            all_camps.append(g)
+            client.last_google_sync = datetime.utcnow()
+
+        if client.meta_ads_account_id:
+            m = fetch_meta_ads_campaigns(client.meta_ads_account_id, days=days)
+            all_camps.append(m)
+            client.last_meta_sync = datetime.utcnow()
+
+        if not all_camps:
+            raise HTTPException(400, "No platforms linked. Use /link-platforms first.")
+
+        merged = merge_platform_campaigns(client.name, all_camps)
+        db.commit()
+
+        # Save campaigns to DB
+        campaigns_added = 0
+        existing = {
+            (c.platform, c.platform_campaign_id): c
+            for c in get_campaigns_by_client(db, client_id)
+        }
+
+        for row in merged["campaigns"]:
+            key = (row["platform"], row["platform_campaign_id"])
+            if key not in existing:
+                camp = CampaignModel(
+                    client_id=client_id,
+                    campaign_name=row["campaign_name"],
+                    platform=row["platform"],
+                    platform_campaign_id=row["platform_campaign_id"],
+                    is_auto_synced=True,
+                    synced_at=datetime.utcnow(),
+                )
+                db.add(camp)
+                db.flush()
+                existing[key] = camp
+                campaigns_added += 1
+
+            camp_obj = existing[key]
+            if row.get("date"):
+                from datetime import datetime as dt
+                row_date = dt.strptime(row["date"], "%Y-%m-%d").date()
+                upsert_campaign_data(
+                    db, campaign_id=camp_obj.id, date=row_date,
+                    impressions=row["impressions"], clicks=row["clicks"],
+                    spend=row["spend"], leads=row["leads"],
+                    revenue=row["revenue"], ctr=row["ctr"],
+                    cpl=row["cpl"], conversion_rate=row["conversion_rate"],
+                )
+
+        db.commit()
+        log.info(f"[SYNC] client={client_id} added={campaigns_added} rows={len(merged['campaigns'])}")
+
+        return _safe({
+            "status": "synced",
+            "campaigns_added": campaigns_added,
+            "total_rows": len(merged["campaigns"]),
+            "aggregated": merged["aggregated"],
+        })
+    finally:
+        db.close()
+
+
+@app.get("/api/clients/{client_id}/platform-mapping-suggestions")
+def platform_mapping_suggestions(client_id: int):
+    """
+    Use fuzzy matching to suggest which demo/real platform clients
+    match the stored client name.
+    """
+    from platform_merger import fuzzy_match_clients
+    from mock_ads_api import get_mock_clients_list
+    from database.crud import get_client_by_id
+
+    db = SessionLocal()
+    try:
+        client = get_client_by_id(db, client_id)
+        if not client:
+            raise HTTPException(404, "Client not found")
+
+        mock_clients = get_mock_clients_list()
+        platform_clients = [
+            {"id": c["google_customer_id"], "name": c["name"], "platform": "google_ads"}
+            for c in mock_clients
+        ] + [
+            {"id": c["meta_account_id"], "name": c["name"], "platform": "meta_ads"}
+            for c in mock_clients
+        ]
+
+        our_clients = [{"id": str(client.id), "name": client.name}]
+        suggestions = fuzzy_match_clients(our_clients, platform_clients, threshold=60)
+        return {"client_id": client_id, "suggestions": suggestions}
+    finally:
+        db.close()
 
 
 # ── Campaign Groups ─────────────────────────────────────────────────────────────────
