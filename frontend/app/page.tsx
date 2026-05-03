@@ -26,9 +26,19 @@ export default function DashboardPage() {
   function exportCSV() {
     if (!data) return;
     const headers = ["Campaign", "Impressions", "Clicks", "Spend ($)", "Leads", "CTR (%)", "CPL ($)", "Conv. Rate (%)"];
-    const rows = data.allocation.map(r => [
-      r.campaign, "", "", "", "", "", "", ""
-    ]);
+    const rows = (data.camp_summary ?? []).map(r => {
+      const row = r as unknown as Record<string, number | string>;
+      return [
+        row.campaign,
+        Number(row.impressions ?? 0).toFixed(0),
+        Number(row.clicks ?? 0).toFixed(0),
+        Number(row.spend ?? 0).toFixed(2),
+        Number(row.leads ?? 0).toFixed(0),
+        Number(row.ctr ?? 0).toFixed(2),
+        Number(row.cpl ?? 0).toFixed(2),
+        Number(row.conversion_rate ?? 0).toFixed(2),
+      ];
+    });
     const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);

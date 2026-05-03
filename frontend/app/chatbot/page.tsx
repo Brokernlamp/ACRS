@@ -37,7 +37,9 @@ export default function ChatbotPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.chatStatus().then(setStatus).catch(() => setStatus(null));
+    api.chatStatus().then(s => {
+      setStatus(s as unknown as Status);
+    }).catch(() => setStatus(null));
   }, []);
 
   useEffect(() => {
@@ -92,10 +94,10 @@ export default function ChatbotPage() {
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           <div className="space-y-1">
             {!status.rag_documents_indexed && (
-              <p><strong>No data indexed.</strong> Upload a CSV on the Dashboard first — the chatbot needs data to answer questions.</p>
+              <p><strong>No data indexed.</strong> Upload a CSV on the Dashboard first.</p>
             )}
-            {status.rag_documents_indexed > 0 && !status.gemini_configured && (
-              <p><strong>Gemini API key missing.</strong> Add <code className="bg-amber-100 px-1 rounded">GEMINI_API_KEY</code> to <code className="bg-amber-100 px-1 rounded">backend/.env</code> and restart the server. The chatbot will still return raw data context without it.</p>
+            {status.rag_documents_indexed > 0 && !(status as unknown as Record<string,unknown>)["ai_configured"] && (
+              <p><strong>No AI key configured.</strong> Go to <strong>Settings</strong> and add a Groq or Gemini API key.</p>
             )}
           </div>
         </div>
@@ -104,7 +106,11 @@ export default function ChatbotPage() {
       {status?.ready && (
         <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs px-4 py-2 rounded-lg mb-3">
           <CheckCircle size={13} />
-          {status.rag_documents_indexed} documents indexed · Gemini {status.gemini_configured ? "connected" : "not configured (fallback mode)"}
+          {status.rag_documents_indexed} documents indexed
+          {" · "}
+          {((status as unknown as Record<string,unknown>)["active_provider"] as string) !== "none"
+            ? `${(status as unknown as Record<string,unknown>)["active_provider"]} connected`
+            : "fallback mode"}
         </div>
       )}
 

@@ -229,6 +229,7 @@ async def upload_csv(file: UploadFile = File(...), client_name: str = Form(...))
                 spend=float(row["spend"]), leads=int(row["leads"]),
                 ctr=float(row.get("ctr") or 0), cpl=float(row.get("cpl") or 0),
                 conversion_rate=float(row.get("conversion_rate") or 0),
+                revenue=float(row.get("revenue") or 0),
             )
     except Exception as e:
         raise HTTPException(500, f"Database error: {e}")
@@ -366,6 +367,8 @@ def list_clients():
         clients = get_clients_by_user(db, _current_user_id)
         rows = []
         for c in clients:
+            if not c.name or not c.name.strip():  # skip empty-name test clients
+                continue
             campaigns = get_campaigns_by_client(db, c.id)
             df = _load_data_from_db(c.id)
             total_spend = float(df["spend"].sum()) if df is not None and not df.empty else 0
@@ -391,15 +394,15 @@ class NewClientRequest(BaseModel):
 
 @app.post("/api/clients")
 def add_client(req: NewClientRequest):
-    if not req.name:
+    if not req.name or not req.name.strip():
         raise HTTPException(400, "Client name is required.")
     db = SessionLocal()
     try:
         existing = get_clients_by_user(db, _current_user_id)
-        if any(c.name.lower() == req.name.lower() for c in existing):
+        if any(c.name.lower() == req.name.strip().lower() for c in existing):
             raise HTTPException(409, f"Client '{req.name}' already exists.")
         client = create_client(
-            db, user_id=_current_user_id, name=req.name,
+            db, user_id=_current_user_id, name=req.name.strip(),
             industry=req.industry, target_cpl=req.target_cpl,
             monthly_budget=req.monthly_budget,
         )
@@ -408,6 +411,19 @@ def add_client(req: NewClientRequest):
             db.commit()
             db.refresh(client)
         return {"id": client.id, "name": client.name, "industry": client.industry}
+    finally:
+        db.close()
+
+
+@app.delete("/api/clients/{client_id}")
+def delete_client_endpoint(client_id: int):
+    from database.crud import delete_client
+    db = SessionLocal()
+    try:
+        ok = delete_client(db, client_id)
+        if not ok:
+            raise HTTPException(404, "Client not found")
+        return {"status": "deleted"}
     finally:
         db.close()
 

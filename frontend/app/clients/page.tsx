@@ -1,13 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api, Client } from "@/lib/api";
-import { Loader2, RefreshCw, Plus } from "lucide-react";
+import { Loader2, RefreshCw, Plus, Trash2 } from "lucide-react";
+
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
@@ -35,12 +38,24 @@ export default function ClientsPage() {
         monthly_budget: budget ? Number(budget) : undefined,
         revenue_per_lead: revPerLead ? Number(revPerLead) : undefined,
       });
-      setSuccess(`Client "${name}" added successfully.`);
+      setSuccess(`Client "${name.trim()}" added.`);
       setName(""); setIndustry(""); setTargetCpl(""); setBudget(""); setRevPerLead("");
       await load();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to add client");
     } finally { setAdding(false); }
+  }
+
+  async function handleDelete(id: number, clientName: string) {
+    if (!confirm(`Delete client "${clientName}"? This cannot be undone.`)) return;
+    setDeletingId(id); setError(null);
+    try {
+      await fetch(`${BASE}/api/clients/${id}`, { method: "DELETE" });
+      setSuccess(`Client "${clientName}" deleted.`);
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to delete");
+    } finally { setDeletingId(null); }
   }
 
   return (
@@ -57,7 +72,7 @@ export default function ClientsPage() {
         {/* Client list */}
         <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-700">Your Clients</h2>
+            <h2 className="text-sm font-semibold text-gray-700">Your Clients <span className="text-gray-400 font-normal">({clients.length})</span></h2>
             <button onClick={load} disabled={loading}
               className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 transition-colors">
               {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Refresh
@@ -66,24 +81,34 @@ export default function ClientsPage() {
           {clients.length === 0 ? (
             <div className="text-center py-12 text-gray-400 text-sm">No clients yet. Add one →</div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                <tr>{["Client", "Industry", "Campaigns", "Total Spend", "Leads", "Avg CPL"].map(h =>
-                  <th key={h} className="px-4 py-3 text-left font-semibold">{h}</th>)}</tr>
-              </thead>
-              <tbody>
-                {clients.map((c, i) => (
-                  <tr key={c.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                    <td className="px-4 py-3 font-semibold text-gray-900">{c.name}</td>
-                    <td className="px-4 py-3 text-gray-700">{c.industry}</td>
-                    <td className="px-4 py-3 text-gray-700">{c.campaigns}</td>
-                    <td className="px-4 py-3 text-gray-700">${c.total_spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-3 text-gray-700">{c.total_leads.toLocaleString()}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-900">${c.avg_cpl.toFixed(2)}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                  <tr>
+                    {["Client", "Industry", "Campaigns", "Total Spend", "Leads", "Avg CPL", ""].map(h =>
+                      <th key={h} className="px-4 py-3 text-left font-semibold">{h}</th>)}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {clients.map((c, i) => (
+                    <tr key={c.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                      <td className="px-4 py-3 font-semibold text-gray-900">{c.name}</td>
+                      <td className="px-4 py-3 text-gray-700">{c.industry}</td>
+                      <td className="px-4 py-3 text-gray-700">{c.campaigns}</td>
+                      <td className="px-4 py-3 text-gray-700">${c.total_spend.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-gray-700">{c.total_leads.toLocaleString()}</td>
+                      <td className="px-4 py-3 font-semibold text-gray-900">${c.avg_cpl.toFixed(2)}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => handleDelete(c.id, c.name)} disabled={deletingId === c.id}
+                          className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50">
+                          {deletingId === c.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
@@ -100,9 +125,11 @@ export default function ClientsPage() {
             <div key={label}>
               <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
               <input value={value} onChange={e => set(e.target.value)} placeholder={placeholder}
+                onKeyDown={e => e.key === "Enter" && handleAdd()}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
             </div>
           ))}
+          <p className="text-xs text-gray-400">Revenue per Lead enables P&L calculation in Campaign Groups.</p>
           <button onClick={handleAdd} disabled={adding}
             className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
             {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
