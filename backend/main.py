@@ -244,16 +244,23 @@ class RefreshRequest(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     comparison_period: Optional[str] = "None"
+    client_id: Optional[int] = None  # explicit client_id overrides in-memory state
 
 
 @app.post("/api/refresh")
 def refresh_data(req: RefreshRequest):
-    if not _current_client_id:
+    # Use explicit client_id if provided, otherwise fall back to in-memory
+    target_client_id = req.client_id or _current_client_id
+    if not target_client_id:
         raise HTTPException(400, "No client selected. Upload data first.")
 
-    df = _load_data_from_db(_current_client_id, req.start_date, req.end_date)
+    # Update in-memory state so subsequent calls work
+    global _current_client_id
+    _current_client_id = target_client_id
+
+    df = _load_data_from_db(target_client_id, req.start_date, req.end_date)
     if df is None or df.empty:
-        raise HTTPException(404, "No data found for selected date range.")
+        raise HTTPException(404, "No data found for this client yet.")
 
     result = _process_df(df)
 
@@ -261,7 +268,7 @@ def refresh_data(req: RefreshRequest):
         period = "week" if "Week" in req.comparison_period else "month"
         ranges = get_date_ranges(req.end_date, period)
         prev_start, prev_end = ranges["previous"]
-        prev_df = _load_data_from_db(_current_client_id, prev_start.strftime("%Y-%m-%d"), prev_end.strftime("%Y-%m-%d"))
+        prev_df = _load_data_from_db(target_client_id, prev_start.strftime("%Y-%m-%d"), prev_end.strftime("%Y-%m-%d"))
         if prev_df is not None and not prev_df.empty:
             prev_df = compute_kpis(prev_df)
             comparison = calculate_period_comparison(df, prev_df)

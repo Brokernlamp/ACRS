@@ -105,11 +105,11 @@ export const api = {
     return request("/api/upload", { method: "POST", body: form });
   },
 
-  refresh: (startDate: string, endDate: string, comparisonPeriod = "None"): Promise<AnalyticsResult> =>
+  refresh: (startDate: string, endDate: string, comparisonPeriod = "None", clientId?: number): Promise<AnalyticsResult> =>
     request("/api/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ start_date: startDate, end_date: endDate, comparison_period: comparisonPeriod }),
+      body: JSON.stringify({ start_date: startDate, end_date: endDate, comparison_period: comparisonPeriod, client_id: clientId }),
     }),
 
   simulate: (campaign: string, deltaPct: number): Promise<SimResult> =>

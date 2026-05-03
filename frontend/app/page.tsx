@@ -61,16 +61,26 @@ export default function DashboardPage() {
     }).catch(() => {});
   }, []);
 
-  // When client changes, pre-fill platform IDs if already linked
+  // When client changes, pre-fill platform IDs and auto-load existing data
   useEffect(() => {
     if (!clientId) return;
-    // Try to load existing data for this client
+    // Pre-fill linked platform IDs
     req<{ google_ads_customer_id?: string; meta_ads_account_id?: string }>(
       `/api/clients/${clientId}/platform-info`
     ).then(info => {
       if (info.google_ads_customer_id) setGoogleId(info.google_ads_customer_id);
       if (info.meta_ads_account_id) setMetaId(info.meta_ads_account_id);
     }).catch(() => {});
+
+    // Auto-load existing data from DB for this client
+    setLoading(true);
+    setError(null);
+    api.refresh(startDate, endDate, "None", clientId)
+      .then(result => setData(result))
+      .catch(() => {
+        setData(null as never);
+      })
+      .finally(() => setLoading(false));
   }, [clientId]);
 
   async function handleCreateClient() {
@@ -119,7 +129,7 @@ export default function DashboardPage() {
       // Sync data
       await req(`/api/clients/${clientId}/sync-platforms`, { method: "POST" });
       // Now load into dashboard via refresh
-      const result = await api.refresh(startDate, endDate, "None");
+      const result = await api.refresh(startDate, endDate, "None", clientId ?? undefined);
       setData(result);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Sync failed");
@@ -128,7 +138,7 @@ export default function DashboardPage() {
 
   async function handleRefresh() {
     setLoading(true); setError(null);
-    try { setData(await api.refresh(startDate, endDate, comparison)); }
+    try { setData(await api.refresh(startDate, endDate, comparison, clientId ?? undefined)); }
     catch (e: unknown) { setError(e instanceof Error ? e.message : "Refresh failed"); }
     finally { setLoading(false); }
   }
@@ -177,7 +187,6 @@ export default function DashboardPage() {
           {clients.map(c => (
             <button key={c.id}
               onClick={() => {
-                // Only clear analytics data, NOT the data source selection
                 if (c.id !== clientId) {
                   setClientId(c.id);
                   setClientName(c.name);
@@ -191,11 +200,6 @@ export default function DashboardPage() {
                   : "bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:text-indigo-600"
               }`}>
               {c.name}
-              {c.total_leads > 0 && (
-                <span className={`ml-2 text-xs ${clientId === c.id ? "text-indigo-200" : "text-gray-400"}`}>
-                  {c.total_leads} leads
-                </span>
-              )}
             </button>
           ))}
 
