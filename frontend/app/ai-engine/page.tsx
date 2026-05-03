@@ -102,7 +102,7 @@ export default function AiEnginePage() {
           {/* CPL prediction */}
           <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
             <div className="text-xs text-slate-400 mb-2 flex items-center gap-1.5"><DollarSign size={12} /> Expected CPL</div>
-            <div className="text-4xl font-bold text-white">${liveCpl.toFixed(2)}</div>
+            <div className="text-4xl font-bold text-white">₹{liveCpl.toFixed(2)}</div>
             <div className="text-xs text-slate-500 mt-2">Updates live with simulator below</div>
           </div>
 
@@ -126,8 +126,8 @@ export default function AiEnginePage() {
             <DollarSign size={18} className="text-red-300" />
           </div>
           <div>
-            <p className="text-sm font-bold text-red-300">${waste.total_wasted.toLocaleString(undefined, { minimumFractionDigits: 2 })} in inefficient spend detected</p>
-            <p className="text-xs text-red-400 mt-0.5">Worst offender: <strong>{waste.worst_campaign}</strong> · Up to <strong>${waste.savings_opportunity.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong> recoverable by reallocation</p>
+            <p className="text-sm font-bold text-red-300">₹{waste.total_wasted.toLocaleString("en-IN", { minimumFractionDigits: 2 })} in inefficient spend detected</p>
+            <p className="text-xs text-red-400 mt-0.5">Worst offender: <strong>{waste.worst_campaign}</strong> · Up to <strong>₹{waste.savings_opportunity.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong> recoverable by reallocation</p>
           </div>
         </div>
       )}
@@ -184,7 +184,7 @@ export default function AiEnginePage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 font-semibold text-emerald-700">
-                    ${row.recommended_budget.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ₹{row.recommended_budget.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{row.budget_share_pct}%</td>
                 </tr>
@@ -243,7 +243,7 @@ export default function AiEnginePage() {
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">
                 Budget Change: <span className={simDelta >= 0 ? "text-emerald-400 font-bold" : "text-red-400 font-bold"}>{simDelta > 0 ? "+" : ""}{simDelta}%</span>
-                <span className="ml-3 text-slate-500">→ Est. CPL: <strong className="text-white">${liveCpl.toFixed(2)}</strong></span>
+                <span className="ml-3 text-slate-500">→ Est. CPL: <strong className="text-white">₹{liveCpl.toFixed(2)}</strong></span>
               </label>
               <input type="range" min={-80} max={100} step={10} value={simDelta}
                 onChange={e => setSimDelta(Number(e.target.value))}
@@ -272,9 +272,9 @@ export default function AiEnginePage() {
                   <p className="text-xs font-bold text-slate-300 mb-3">📊 {simResult.action}</p>
                   <div className="space-y-2">
                     {[
-                      { label: "Spend", val: `${simResult.spend_change >= 0 ? "+" : ""}$${simResult.spend_change.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, pos: simResult.spend_change >= 0 },
+                      { label: "Spend", val: `${simResult.spend_change >= 0 ? "+" : ""}₹${simResult.spend_change.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, pos: simResult.spend_change >= 0 },
                       { label: "Leads", val: `${simResult.leads_change >= 0 ? "+" : ""}${simResult.leads_change}`, pos: simResult.leads_change >= 0 },
-                      { label: "CPL", val: `${simResult.cpl_change >= 0 ? "+" : ""}$${simResult.cpl_change.toFixed(2)}`, pos: simResult.cpl_change <= 0 },
+                      { label: "CPL", val: `${simResult.cpl_change >= 0 ? "+" : ""}₹${simResult.cpl_change.toFixed(2)}`, pos: simResult.cpl_change <= 0 },
                     ].map(({ label, val, pos }) => (
                       <div key={label} className="flex justify-between items-center">
                         <span className="text-xs text-slate-400">{label}</span>
@@ -289,7 +289,7 @@ export default function AiEnginePage() {
                 <div className="rounded-xl p-4 border bg-red-950 border-red-800">
                   <p className="text-xs font-bold text-slate-300 mb-3">⏸ Pause Impact</p>
                   <div className="space-y-2">
-                    <div className="flex justify-between"><span className="text-xs text-slate-400">Spend Saved</span><span className="text-sm font-bold text-emerald-400">${Math.abs(pauseResult.spend_change).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between"><span className="text-xs text-slate-400">Spend Saved</span><span className="text-sm font-bold text-emerald-400">₹{Math.abs(pauseResult.spend_change).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
                     <div className="flex justify-between"><span className="text-xs text-slate-400">Leads Lost</span><span className="text-sm font-bold text-red-400">{Math.abs(pauseResult.leads_change)}</span></div>
                   </div>
                   <p className="text-xs text-slate-500 mt-3 italic">{pauseResult.summary}</p>
@@ -321,13 +321,13 @@ export default function AiEnginePage() {
                       <td className="px-4 py-3 font-medium text-gray-900">{r.campaign}</td>
                       <td className="px-4 py-3 text-gray-600 text-xs">{r.action}</td>
                       <td className={`px-4 py-3 font-semibold text-xs ${r.spend_change >= 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                        {r.spend_change >= 0 ? "+" : ""}${r.spend_change.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {r.spend_change >= 0 ? "+" : ""}₹{r.spend_change.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
                       <td className={`px-4 py-3 font-semibold text-xs ${r.leads_change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                         {r.leads_change >= 0 ? "+" : ""}{r.leads_change}
                       </td>
                       <td className={`px-4 py-3 font-semibold text-xs ${r.cpl_change >= 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                        {r.cpl_change >= 0 ? "+" : ""}${r.cpl_change.toFixed(2)}
+                        {r.cpl_change >= 0 ? "+" : ""}₹{r.cpl_change.toFixed(2)}
                       </td>
                     </tr>
                   ))}

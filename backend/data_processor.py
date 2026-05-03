@@ -16,7 +16,7 @@ def summary_kpis(df: pd.DataFrame) -> dict:
     try:
         if df.empty:
             return {
-                "Total Spend": "$0.00", "Total Leads": 0, "Total Clicks": 0,
+                "Total Spend": "₹0.00", "Total Leads": 0, "Total Clicks": 0,
                 "Total Impressions": 0, "Blended CPL ($)": 0.0,
                 "Weighted CTR (%)": 0.0, "Conversion Rate (%)": 0.0, "ROAS": 0.0,
             }
@@ -26,7 +26,7 @@ def summary_kpis(df: pd.DataFrame) -> dict:
         total_impressions = df["impressions"].sum()
         total_revenue = df["revenue"].sum() if "revenue" in df.columns else 0.0
         return {
-            "Total Spend": f"${total_spend:,.2f}",
+            "Total Spend": f"₹{total_spend:,.2f}",
             "Total Leads": int(total_leads),
             "Total Clicks": int(total_clicks),
             "Total Impressions": int(total_impressions),
@@ -76,7 +76,7 @@ def generate_insights(camp_df: pd.DataFrame, kpis: dict) -> list[str]:
         if not valid_cpl.empty:
             best = valid_cpl.loc[valid_cpl["cpl"].idxmin()]
             insights.append(
-                f"'{best['campaign']}' is the most efficient campaign with the lowest CPL of ${best['cpl']:.2f}."
+                f"'{best['campaign']}' is the most efficient campaign with the lowest CPL of ₹{best['cpl']:.2f}."
             )
         
         valid_ctr = camp_df[camp_df["ctr"].notna()]
@@ -92,7 +92,7 @@ def generate_insights(camp_df: pd.DataFrame, kpis: dict) -> list[str]:
             high_cpl = valid_cpl[valid_cpl["cpl"] > avg_cpl * 1.3]
             for _, row in high_cpl.iterrows():
                 insights.append(
-                    f"'{row['campaign']}' has a CPL of ${row['cpl']:.2f}, which is significantly above average — review targeting and budget allocation."
+                    f"'{row['campaign']}' has a CPL of ₹{row['cpl']:.2f}, which is significantly above average — review targeting and budget allocation."
                 )
         
         valid_leads = camp_df[camp_df["leads"] > 0]

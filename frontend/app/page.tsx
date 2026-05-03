@@ -162,7 +162,7 @@ export default function DashboardPage() {
 
   function exportCSV() {
     if (!data) return;
-    const headers = ["Campaign", "Impressions", "Clicks", "Spend ($)", "Leads", "CTR (%)", "CPL ($)", "Conv. Rate (%)"];
+    const headers = ["Campaign", "Impressions", "Clicks", "Spend (₹)", "Leads", "CTR (%)", "CPL (₹)", "Conv. Rate (%)"];
     const rows = (data.camp_summary ?? []).map(r => {
       const row = r as unknown as Record<string, number | string>;
       return [row.campaign, Number(row.impressions ?? 0).toFixed(0), Number(row.clicks ?? 0).toFixed(0),
@@ -434,11 +434,11 @@ export default function DashboardPage() {
               <AlertTriangle size={18} className="text-red-500 mt-0.5 shrink-0" />
               <div className="flex-1 text-sm">
                 <span className="font-semibold text-red-700">
-                  ${data.waste.total_wasted.toLocaleString(undefined, { minimumFractionDigits: 2 })} in wasted spend detected
+                  ₹{data.waste.total_wasted.toLocaleString("en-IN", { minimumFractionDigits: 2 })} in wasted spend detected
                 </span>
                 <span className="text-red-600"> — worst offender: <strong>{data.waste.worst_campaign}</strong>. </span>
                 <span className="text-red-600">
-                  Up to <strong>${data.waste.savings_opportunity.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong> is recoverable.
+                  Up to <strong>₹{data.waste.savings_opportunity.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong> is recoverable.
                 </span>
               </div>
             </div>
@@ -481,10 +481,10 @@ export default function DashboardPage() {
                           <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{r.campaign}</td>
                           <td className="px-4 py-3 text-gray-700">{Number(r.impressions ?? 0).toLocaleString()}</td>
                           <td className="px-4 py-3 text-gray-700">{Number(r.clicks ?? 0).toLocaleString()}</td>
-                          <td className="px-4 py-3 text-gray-700">${Number(r.spend ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                          <td className="px-4 py-3 text-gray-700">₹{Number(r.spend ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                           <td className="px-4 py-3 text-gray-700">{Number(r.leads ?? 0).toLocaleString()}</td>
                           <td className="px-4 py-3 text-gray-700">{Number(r.ctr ?? 0).toFixed(2)}%</td>
-                          <td className="px-4 py-3 text-gray-700">${Number(r.cpl ?? 0).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-gray-700">₹{Number(r.cpl ?? 0).toFixed(2)}</td>
                           <td className="px-4 py-3 text-gray-700">{Number(r.conversion_rate ?? 0).toFixed(2)}%</td>
                           <td className="px-4 py-3">
                             {score !== undefined ? (

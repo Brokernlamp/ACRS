@@ -142,7 +142,7 @@ def simulate_budget_change(camp: pd.DataFrame, campaign_name: str, delta: float)
             "leads_change": -current_leads,
             "cpl_change": 0,
             "summary": (
-                f"Pausing '{campaign_name}' saves ${current_spend:,.2f} "
+                f"Pausing '{campaign_name}' saves ₹{current_spend:,.2f} "
                 f"but eliminates ~{int(current_leads)} leads."
             ),
         }
@@ -161,8 +161,8 @@ def simulate_budget_change(camp: pd.DataFrame, campaign_name: str, delta: float)
         "summary": (
             f"{action} on '{campaign_name}': "
             f"{'+'if new_leads > current_leads else ''}{new_leads - int(current_leads)} leads, "
-            f"{'+'if new_spend > current_spend else ''}${new_spend - current_spend:,.2f} spend, "
-            f"CPL → ${new_cpl:.2f}."
+            f"{'+'if new_spend > current_spend else ''}₹{new_spend - current_spend:,.2f} spend, "
+            f"CPL → ₹{new_cpl:.2f}."
         ),
     }
 
@@ -257,7 +257,7 @@ def recommended_actions(camp_scored: pd.DataFrame, waste: dict) -> list[str]:
 
     if waste.get("total_wasted", 0) > 0:
         actions.append(
-            f"💸 REALLOCATE: ${waste['total_wasted']:,.2f} in inefficient spend detected. "
+            f"💸 REALLOCATE: ₹{waste['total_wasted']:,.2f} in inefficient spend detected. "
             f"Shift budget from '{waste['worst_campaign']}' → '{best['campaign']}'."
         )
 
@@ -266,7 +266,7 @@ def recommended_actions(camp_scored: pd.DataFrame, waste: dict) -> list[str]:
         avg_cpl = valid_cpl["cpl"].mean()
         high_cpl = valid_cpl[valid_cpl["cpl"] > avg_cpl * 1.25]
         for _, row in high_cpl.iterrows():
-            actions.append(f"✂️ OPTIMISE: '{row['campaign']}' CPL ${row['cpl']:.2f} is 25%+ above average — reduce bids or tighten audience.")
+            actions.append(f"✂️ OPTIMISE: '{row['campaign']}' CPL ₹{row['cpl']:.2f} is 25%+ above average — reduce bids or tighten audience.")
 
     return actions
 

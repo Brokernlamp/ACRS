@@ -60,7 +60,7 @@ def generate_pdf(
         story.append(Paragraph("Campaign Breakdown", s["SectionHead"]))
         cols = [c for c in ["campaign", "impressions", "clicks", "spend", "leads", "ctr", "cpl", "conversion_rate"] if c in camp_df.columns]
         headers_map = {"campaign": "Campaign", "impressions": "Impressions", "clicks": "Clicks",
-                       "spend": "Spend ($)", "leads": "Leads", "ctr": "CTR (%)", "cpl": "CPL ($)", "conversion_rate": "Conv. Rate (%)"}
+                       "spend": "Spend (₹)", "leads": "Leads", "ctr": "CTR (%)", "cpl": "CPL (₹)", "conversion_rate": "Conv. Rate (%)"}
         headers = [headers_map.get(c, c) for c in cols]
         rows = [headers] + [[str(row[c]) for c in cols] for _, row in camp_df[cols].iterrows()]
         ct = Table(rows, repeatRows=1)
@@ -140,9 +140,9 @@ def generate_simulation_pdf(
             sim_data.append([
                 sim.get("campaign", ""),
                 sim.get("action", ""),
-                f"+${spend:,.2f}" if spend >= 0 else f"-${abs(spend):,.2f}",
+                f"+₹{spend:,.2f}" if spend >= 0 else f"-₹{abs(spend):,.2f}",
                 f"+{leads}" if leads >= 0 else str(leads),
-                f"+${cpl:.2f}" if cpl >= 0 else f"-${abs(cpl):.2f}",
+                f"+₹{cpl:.2f}" if cpl >= 0 else f"-₹{abs(cpl):.2f}",
                 sim.get("summary", ""),
             ])
 
@@ -236,7 +236,7 @@ def generate_growth_pdf(
             ["Expected Leads", str(lp.get("predicted_leads", "N/A"))],
             ["Growth Rate", f"{lp.get('growth_rate_pct', 0)}%"],
             ["Trend", lp.get("trend", "N/A")],
-            ["Expected CPL", f"${cp.get('predicted_cpl', 0)}"],
+            ["Expected CPL", f"₹{cp.get('predicted_cpl', 0)}"],
             ["CPL Direction", str(cp.get("direction", "N/A")).capitalize()],
             ["Expected CTR", f"{ctr_p.get('predicted_ctr', 0)}%"],
             ["CTR Drop", f"{ctr_p.get('drop_pct', 0)}%"],
@@ -256,9 +256,9 @@ def generate_growth_pdf(
         story.append(Paragraph("Financial Impact", s["SectionHead"]))
         fin_data = [
             ["Item", "Amount"],
-            ["Estimated Wasted Spend", f"${waste.get('total_wasted', 0):,.2f}"],
+            ["Estimated Wasted Spend", f"₹{waste.get('total_wasted', 0):,.2f}"],
             ["Worst Offender", waste.get("worst_campaign", "N/A")],
-            ["Recoverable Savings", f"${waste.get('savings_opportunity', 0):,.2f}"],
+            ["Recoverable Savings", f"₹{waste.get('savings_opportunity', 0):,.2f}"],
         ]
         ft = Table(fin_data, colWidths=[9*cm, 7*cm])
         ft.setStyle(TableStyle([
@@ -283,10 +283,10 @@ def generate_growth_pdf(
         alloc = intelligence.get("allocation")
         if alloc is not None and not alloc.empty:
             story.append(Paragraph("Optimal Budget Plan", s["SectionHead"]))
-            alloc_data = [["Campaign", "Score", "Budget Share (%)", "Recommended Budget ($)"]]
+            alloc_data = [["Campaign", "Score", "Budget Share (%)", "Recommended Budget (₹)"]]
             for _, row in alloc.iterrows():
                 alloc_data.append([row["campaign"], str(row.get("score", "N/A")),
-                                   f"{row.get('budget_share_pct', 0)}%", f"${row.get('recommended_budget', 0):,.2f}"])
+                                   f"{row.get('budget_share_pct', 0)}%", f"₹{row.get('recommended_budget', 0):,.2f}"])
             at = Table(alloc_data, repeatRows=1)
             at.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), BRAND), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),

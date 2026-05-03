@@ -3,7 +3,7 @@ import { KPIs } from "@/lib/api";
 const CARDS = [
   { key: "Total Spend",         icon: "💰", accent: "border-indigo-400",  sub: "Total ad spend" },
   { key: "Total Leads",         icon: "🎯", accent: "border-emerald-400", sub: "Leads generated" },
-  { key: "Blended CPL ($)",     icon: "📉", accent: "border-violet-400",  sub: "Spend ÷ leads" },
+  { key: "Blended CPL (₹)",     icon: "📉", accent: "border-violet-400",  sub: "Spend ÷ leads" },
   { key: "Weighted CTR (%)",    icon: "👆", accent: "border-sky-400",     sub: "Clicks ÷ impressions" },
   { key: "Conversion Rate (%)", icon: "🔄", accent: "border-amber-400",   sub: "Leads ÷ clicks" },
   { key: "Total Clicks",        icon: "🖱️", accent: "border-slate-400",   sub: "Total clicks" },
@@ -14,7 +14,7 @@ const CARDS = [
 function fmt(key: string, val: number | string): string {
   if (typeof val === "string") return val;
   if (key === "ROAS") return val === 0 ? "N/A" : `${val.toFixed(2)}x`;
-  if (key.includes("$")) return `$${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  if (key.includes("₹")) return `₹${val.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
   if (key.includes("%")) return `${val.toFixed(2)}%`;
   return val.toLocaleString();
 }
