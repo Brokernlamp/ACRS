@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart2, Brain, Users, FileText, Zap, MessageSquare, Settings, Layers, Globe } from "lucide-react";
+import { BarChart2, Brain, Users, FileText, Zap, MessageSquare, Settings, Layers, Globe, Presentation } from "lucide-react";
 
 const nav = [
   { href: "/",           label: "Dashboard",          icon: BarChart2 },
@@ -11,6 +11,7 @@ const nav = [
   { href: "/clients",    label: "Clients",             icon: Users },
   { href: "/reports",    label: "Reports & Email",     icon: FileText },
   { href: "/chatbot",    label: "AI Chatbot",          icon: MessageSquare },
+  { href: "/pitch",      label: "Pitch Deck",          icon: Presentation },
 ];
 
 export default function Sidebar() {
