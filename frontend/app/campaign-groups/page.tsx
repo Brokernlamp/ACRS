@@ -165,7 +165,13 @@ export default function CampaignGroupsPage() {
       {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">⚠️ {error}</div>}
       {successMsg && <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm px-4 py-3 rounded-lg"><CheckCircle size={14} /> {successMsg}</div>}
 
-      {/* No data state */}
+      {/* What is this page */}
+      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+        <p className="text-sm font-semibold text-indigo-900 mb-1">📌 When to use this page</p>
+        <p className="text-sm text-indigo-800">Use this <strong>only if you run the same campaign goal across multiple platforms</strong> — e.g. Google Ads + Meta Ads both doing retargeting for the same client.</p>
+        <p className="text-sm text-indigo-700 mt-1">Create a group (e.g. &quot;Retargeting&quot;), assign campaigns from different platforms to it, and see the <strong>combined spend, leads, and CPL</strong> in one place.</p>
+        <p className="text-xs text-indigo-500 mt-2">If you only use one platform or just uploaded a CSV — you can skip this page entirely. Everything you need is on the Dashboard and AI Engine.</p>
+      </div>
       {!hasCampaigns && !loading && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-lg">
           ⚠️ No campaigns found for this client. Upload a CSV on the Dashboard first, then come back here to group them.

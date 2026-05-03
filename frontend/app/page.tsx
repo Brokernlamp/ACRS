@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const { data, setData, clientId, setClientId, clientName, setClientName, setLoading, loading, setError, clearData } = useAppState();
 
   const [clients, setClients] = useState<Client[]>([]);
-  const [dataSource, setDataSource] = useState<DataSource>(null);
+  const [dataSource, setDataSource] = useState<DataSource>("csv"); // default open
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClientName, setNewClientName] = useState("");
 
@@ -176,7 +176,15 @@ export default function DashboardPage() {
         <div className="flex flex-wrap gap-2">
           {clients.map(c => (
             <button key={c.id}
-              onClick={() => { setClientId(c.id); setClientName(c.name); clearData(); setDataSource(null); }}
+              onClick={() => {
+                // Only clear analytics data, NOT the data source selection
+                if (c.id !== clientId) {
+                  setClientId(c.id);
+                  setClientName(c.name);
+                  setData(null as never);
+                  setError(null);
+                }
+              }}
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                 clientId === c.id
                   ? "bg-indigo-600 text-white border-indigo-600"
