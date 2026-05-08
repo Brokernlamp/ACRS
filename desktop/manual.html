@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Growth Operator — User Manual</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8fafc; color: #1e293b; line-height: 1.6; }
+
+    /* Nav */
+    nav { position: fixed; top: 0; left: 0; width: 240px; height: 100vh; background: #0f172a; color: #94a3b8; overflow-y: auto; padding: 24px 0; z-index: 100; }
+    nav .logo { padding: 0 20px 20px; border-bottom: 1px solid #1e293b; margin-bottom: 12px; }
+    nav .logo h1 { font-size: 14px; font-weight: 700; color: #fff; }
+    nav .logo p { font-size: 11px; color: #475569; margin-top: 2px; }
+    nav a { display: block; padding: 7px 20px; font-size: 13px; color: #94a3b8; text-decoration: none; transition: all .15s; border-left: 3px solid transparent; }
+    nav a:hover, nav a.active { color: #fff; background: #1e293b; border-left-color: #6366f1; }
+    nav .section-label { padding: 16px 20px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #334155; }
+
+    /* Main */
+    main { margin-left: 240px; padding: 48px 48px 80px; max-width: 960px; }
+
+    /* Sections */
+    section { margin-bottom: 64px; scroll-margin-top: 32px; }
+    h2 { font-size: 22px; font-weight: 700; color: #0f172a; margin-bottom: 6px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }
+    h3 { font-size: 15px; font-weight: 700; color: #1e293b; margin: 24px 0 8px; }
+    p { font-size: 14px; color: #475569; margin-bottom: 12px; }
+    ul, ol { padding-left: 20px; margin-bottom: 12px; }
+    li { font-size: 14px; color: #475569; margin-bottom: 5px; }
+    strong { color: #1e293b; }
+
+    /* Hero */
+    .hero { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color: white; border-radius: 16px; padding: 40px; margin-bottom: 48px; }
+    .hero h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+    .hero p { color: #94a3b8; font-size: 15px; margin: 0; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+    .badge { background: #1e293b; border: 1px solid #334155; color: #94a3b8; font-size: 11px; padding: 4px 10px; border-radius: 20px; }
+
+    /* Cards */
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .feature-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+    .feature-card .icon { font-size: 24px; margin-bottom: 10px; }
+    .feature-card h3 { margin: 0 0 6px; font-size: 14px; }
+    .feature-card p { margin: 0; font-size: 13px; }
+
+    /* Steps */
+    .steps { counter-reset: step; }
+    .step { display: flex; gap: 16px; margin-bottom: 20px; }
+    .step-num { width: 28px; height: 28px; border-radius: 50%; background: #6366f1; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .step-body h3 { margin: 0 0 4px; font-size: 14px; }
+    .step-body p { margin: 0; font-size: 13px; }
+
+    /* Code */
+    code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 5px; padding: 2px 6px; font-size: 12px; font-family: "SF Mono", monospace; color: #6366f1; }
+    pre { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 18px 20px; font-size: 12px; font-family: "SF Mono", monospace; overflow-x: auto; margin-bottom: 16px; line-height: 1.7; }
+    pre .comment { color: #475569; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+    th { background: #f8fafc; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+    td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; color: #475569; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    td strong { color: #1e293b; }
+
+    /* Callouts */
+    .tip { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; font-size: 13px; color: #166534; }
+    .warn { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; font-size: 13px; color: #92400e; }
+    .info { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; font-size: 13px; color: #1e40af; }
+
+    /* Pill */
+    .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; margin-right: 4px; }
+    .pill-green { background: #dcfce7; color: #166534; }
+    .pill-blue { background: #dbeafe; color: #1e40af; }
+    .pill-amber { background: #fef3c7; color: #92400e; }
+    .pill-red { background: #fee2e2; color: #991b1b; }
+    .pill-purple { background: #ede9fe; color: #5b21b6; }
+
+    /* Kbd */
+    kbd { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-family: monospace; }
+
+    @media (max-width: 768px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">
+    <h1>⚡ AI Growth Operator</h1>
+    <p>User Manual v1.0</p>
+  </div>
+  <div class="section-label">Getting Started</div>
+  <a href="#overview">Overview</a>
+  <a href="#quickstart">Quick Start</a>
+  <a href="#csv-format">CSV Format</a>
+  <div class="section-label">Features</div>
+  <a href="#dashboard">Dashboard</a>
+  <a href="#ai-engine">AI Growth Engine</a>
+  <a href="#chatbot">AI Chatbot</a>
+  <a href="#clients">Client Management</a>
+  <a href="#reports">Reports & Email</a>
+  <a href="#settings">Settings</a>
+  <div class="section-label">Reference</div>
+  <a href="#metrics">Metrics Glossary</a>
+  <a href="#faq">FAQ</a>
+</nav>
+
+<main>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>⚡ AI Growth Operator</h1>
+    <p>Marketing analytics platform for agencies — predictive insights, budget optimisation, AI chatbot, and automated reporting.</p>
+    <div class="badge-row">
+      <span class="badge">Next.js 16</span>
+      <span class="badge">FastAPI</span>
+      <span class="badge">Gemini 2.0 Flash Lite</span>
+      <span class="badge">ChromaDB RAG</span>
+      <span class="badge">Plotly Charts</span>
+      <span class="badge">ReportLab PDFs</span>
+    </div>
+  </div>
+
+  <!-- Overview -->
+  <section id="overview">
+    <h2>Overview</h2>
+    <p>AI Growth Operator is a desktop-first marketing analytics platform built for agencies managing multiple clients across Google Ads, Meta Ads, and other channels. Upload campaign data via CSV or sync directly from ad platforms, and the app instantly produces KPI dashboards, 7-day AI predictions, budget recommendations, and client-ready PDF reports.</p>
+
+    <div class="card-grid">
+      <div class="feature-card">
+        <div class="icon">📊</div>
+        <h3>Live Dashboard</h3>
+        <p>KPI cards, interactive Plotly charts, campaign breakdown table, and diagnostic insights — all in one view.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🧠</div>
+        <h3>AI Growth Engine</h3>
+        <p>7-day lead & CPL predictions, wasted spend detection, performance scoring, and a budget scenario simulator.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">💬</div>
+        <h3>AI Chatbot</h3>
+        <p>Ask questions about your campaign data in plain English. Powered by Gemini with RAG over your actual data.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">👥</div>
+        <h3>Client Management</h3>
+        <p>Add unlimited clients, track spend and leads per client, and manage platform account links.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📄</div>
+        <h3>PDF Reports</h3>
+        <p>One-click Standard and AI Growth Strategy reports. Email them directly to clients from the app.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔗</div>
+        <h3>Platform Sync</h3>
+        <p>Link Google Ads and Meta Ads account IDs to pull campaign data automatically without CSV exports.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section id="quickstart">
+    <h2>Quick Start</h2>
+    <p>Get up and running in under 5 minutes.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Launch the app</h3>
+          <p>Open AI Growth Operator from your Applications folder. The app starts its own backend and frontend servers automatically — wait for the splash screen to disappear.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Create or select a client</h3>
+          <p>On the Dashboard, click <strong>+ New Client</strong> and type a name, then press <kbd>Enter</kbd>. Or click an existing client button to switch to them.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Load campaign data</h3>
+          <p>Choose <strong>Upload CSV</strong> and select your file, or choose <strong>Sync from Platforms</strong> and enter your Google/Meta account IDs. Click <strong>Upload & Analyse</strong>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Explore your analytics</h3>
+          <p>KPI cards, charts, and insights appear instantly. Navigate to <strong>AI Growth Engine</strong> for predictions and simulations, or <strong>AI Chatbot</strong> to ask questions.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3>Generate a report</h3>
+          <p>Go to <strong>Reports</strong> and click <strong>AI Growth Strategy Report</strong> to download a PDF, or fill in the email fields to send it directly to your client.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tip">💡 No data yet? Go to <strong>Settings → Sample Data</strong> and download the 60-day sample CSV to explore all features immediately.</div>
+  </section>
+
+  <!-- CSV Format -->
+  <section id="csv-format">
+    <h2>CSV Format</h2>
+    <p>The app accepts a simple CSV with the following columns:</p>
+
+    <table>
+      <thead><tr><th>Column</th><th>Required</th><th>Description</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><code>date</code></td><td><span class="pill pill-red">Required</span></td><td>Date of the data row</td><td><code>2024-01-15</code></td></tr>
+        <tr><td><code>campaign</code></td><td><span class="pill pill-red">Required</span></td><td>Campaign name</td><td><code>Google Search</code></td></tr>
+        <tr><td><code>impressions</code></td><td><span class="pill pill-red">Required</span></td><td>Total impressions</td><td><code>50000</code></td></tr>
+        <tr><td><code>clicks</code></td><td><span class="pill pill-red">Required</span></td><td>Total clicks</td><td><code>600</code></td></tr>
+        <tr><td><code>spend</code></td><td><span class="pill pill-red">Required</span></td><td>Amount spent</td><td><code>320.50</code></td></tr>
+        <tr><td><code>leads</code></td><td><span class="pill pill-red">Required</span></td><td>Leads / conversions</td><td><code>45</code></td></tr>
+        <tr><td><code>revenue</code></td><td><span class="pill pill-green">Optional</span></td><td>Revenue generated — enables ROAS</td><td><code>5400.00</code></td></tr>
+      </tbody>
+    </table>
+
+    <pre><span class="comment"># Minimal example</span>
+date,campaign,impressions,clicks,spend,leads
+2024-01-01,Google Search,50000,600,320.50,45
+2024-01-01,Meta Retargeting,30000,180,150.00,12
+
+<span class="comment"># With revenue (enables ROAS calculation)</span>
+date,campaign,impressions,clicks,spend,leads,revenue
+2024-01-01,Google Search,50000,600,320.50,45,5400.00</pre>
+
+    <div class="warn">⚠️ Each row = one campaign on one date. Multiple campaigns per day is fine — just use separate rows. The date format must be <code>YYYY-MM-DD</code>.</div>
+  </section>
+
+  <!-- Dashboard -->
+  <section id="dashboard">
+    <h2>Dashboard</h2>
+    <p>The main view. Everything starts here.</p>
+
+    <h3>Step 1 — Select a Client</h3>
+    <p>Click any client button to load their data. Click <strong>+ New Client</strong> to add one inline. The selected client is highlighted in indigo.</p>
+
+    <h3>Step 2 — Load Data</h3>
+    <p>Two options:</p>
+    <ul>
+      <li><strong>Upload CSV</strong> — choose a file and click Upload & Analyse. Data is saved to the database so you don't need to re-upload next time.</li>
+      <li><strong>Sync from Platforms</strong> — enter your Google Ads Customer ID and/or Meta Ads Account ID, then click Sync & Analyse. Use the demo quick-fill buttons (Ajay, TechStartup, EcommerceBrand) to test with sample data.</li>
+    </ul>
+
+    <h3>Data Coverage Banner</h3>
+    <p>Once data is loaded, a green banner shows the date range and row count stored for the client. If platforms are linked, a <strong>Sync Latest</strong> button appears to pull fresh data.</p>
+
+    <h3>Date Filter & Comparison</h3>
+    <p>Use the Start Date / End Date pickers to narrow the analysis window. The <strong>Compare To</strong> dropdown adds a period-over-period summary banner (Previous Week or Previous Month).</p>
+
+    <h3>KPI Cards</h3>
+    <p>Six headline metrics shown at the top of the analytics output:</p>
+    <div class="card-grid">
+      <div class="card"><strong>Total Spend</strong><br/><span style="font-size:13px;color:#64748b">Sum of all campaign spend in the selected period.</span></div>
+      <div class="card"><strong>Total Leads</strong><br/><span style="font-size:13px;color:#64748b">Sum of all conversions / leads generated.</span></div>
+      <div class="card"><strong>Avg CPL</strong><br/><span style="font-size:13px;color:#64748b">Cost per lead = Total Spend ÷ Total Leads.</span></div>
+      <div class="card"><strong>Avg CTR</strong><br/><span style="font-size:13px;color:#64748b">Click-through rate = Clicks ÷ Impressions × 100.</span></div>
+      <div class="card"><strong>Total Clicks</strong><br/><span style="font-size:13px;color:#64748b">Sum of all clicks across all campaigns.</span></div>
+      <div class="card"><strong>Total Impressions</strong><br/><span style="font-size:13px;color:#64748b">Sum of all ad impressions served.</span></div>
+    </div>
+
+    <h3>Charts</h3>
+    <ul>
+      <li><strong>Leads Over Time</strong> — daily lead volume trend line.</li>
+      <li><strong>Spend vs Leads</strong> — bar chart comparing spend and leads per campaign.</li>
+      <li><strong>Campaign Performance</strong> — multi-metric bar chart across all campaigns.</li>
+    </ul>
+
+    <h3>Campaign Breakdown Table</h3>
+    <p>Per-campaign table with Impressions, Clicks, Spend, Leads, CTR, CPL, Conversion Rate, and AI Performance Score. Click <strong>Export CSV</strong> to download the table.</p>
+
+    <h3>Wasted Spend Alert</h3>
+    <p>If the AI detects inefficient spend, a red banner appears showing the total wasted amount, the worst-performing campaign, and the recoverable savings opportunity.</p>
+
+    <h3>Diagnostic Insights</h3>
+    <p>A list of plain-English observations generated by the analytics engine — e.g. "Google Search has the lowest CPL at ₹142" or "Meta Retargeting CTR dropped 18% this week".</p>
+  </section>
+
+  <!-- AI Engine -->
+  <section id="ai-engine">
+    <h2>AI Growth Engine</h2>
+    <p>7-day forward intelligence. Navigate to <strong>AI Growth Engine</strong> in the sidebar after loading data.</p>
+
+    <h3>Prediction Cards</h3>
+    <table>
+      <thead><tr><th>Card</th><th>What it shows</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Expected Leads</strong></td><td>Predicted lead count for the next 7 days, with trend direction and growth rate %.</td></tr>
+        <tr><td><strong>Expected CPL</strong></td><td>Predicted cost per lead. Updates live as you move the budget simulator slider.</td></tr>
+        <tr><td><strong>CTR Fatigue</strong></td><td>Predicted CTR and whether a creative refresh is needed based on drop rate.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Recommended Actions</h3>
+    <p>AI-generated action cards, each tagged with a type:</p>
+    <ul>
+      <li><span class="pill pill-green">SCALE</span> — campaigns with strong ROI that should receive more budget.</li>
+      <li><span class="pill pill-amber">REVIEW</span> — campaigns showing declining performance that need attention.</li>
+      <li><span class="pill pill-blue">REALLOCATE</span> — budget shift suggestions from weak to strong campaigns.</li>
+      <li><span class="pill pill-red">OPTIMISE</span> — campaigns with high spend but poor conversion efficiency.</li>
+    </ul>
+
+    <h3>Performance Scores Table</h3>
+    <p>Every campaign gets a score from 0–100 based on CTR, CPL efficiency, lead volume, and trend. The table also shows the AI-recommended budget and budget share % for each campaign.</p>
+
+    <h3>Detected Patterns</h3>
+    <p>A timeline of automatically detected patterns — e.g. day-of-week performance peaks, CTR fatigue signals, spend spikes, and improving/declining trends.</p>
+
+    <h3>Scenario Simulator</h3>
+    <p>Test budget changes before committing real money:</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body"><h3>Select a campaign</h3><p>Pick any campaign from the dropdown.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body"><h3>Set budget change</h3><p>Drag the slider from -80% to +100%. The Expected CPL card updates live.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body"><h3>Run simulation</h3><p>Click <strong>▶ Run Simulation</strong> to see projected Spend Δ, Leads Δ, and CPL Δ. Click <strong>⏸ Simulate Pause</strong> to see the impact of pausing the campaign entirely.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body"><h3>Print results</h3><p>Run multiple scenarios across different campaigns. Click <strong>Print Simulation</strong> to download a PDF of all scenarios in the session.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Chatbot -->
+  <section id="chatbot">
+    <h2>AI Chatbot</h2>
+    <p>Ask anything about your campaign data in plain English. The chatbot uses RAG (Retrieval-Augmented Generation) — it has full context of your uploaded data, KPIs, predictions, and recommendations.</p>
+
+    <h3>Requirements</h3>
+    <ul>
+      <li>Data must be uploaded on the Dashboard first (the chatbot reads from the indexed data).</li>
+      <li>A Groq or Gemini API key must be configured in Settings.</li>
+    </ul>
+
+    <div class="info">ℹ️ The green status bar at the top of the chatbot shows how many documents are indexed and which AI provider is active.</div>
+
+    <h3>Suggested Questions</h3>
+    <p>Click any suggestion chip to send it instantly:</p>
+    <ul>
+      <li>Which campaign has the best ROI?</li>
+      <li>What is the current CPL trend?</li>
+      <li>Which campaign should I scale?</li>
+      <li>Where is budget being wasted?</li>
+      <li>What are the 7-day lead predictions?</li>
+      <li>Which day of the week performs best?</li>
+    </ul>
+
+    <h3>Token Usage</h3>
+    <p>Each reply shows the token count (↑ input ↓ output) and the active provider. Chat credits are deducted per message — your remaining balance is shown in the top-right corner.</p>
+
+    <h3>Controls</h3>
+    <ul>
+      <li><strong>Clear chat</strong> — resets the conversation history. The AI starts fresh with no memory of previous messages.</li>
+      <li><kbd>Enter</kbd> — sends the message.</li>
+    </ul>
+
+    <div class="warn">⚠️ If you see "Chat credits exhausted", contact your account owner to top up. Credits are managed server-side and refresh automatically after a top-up on the next poll cycle (up to 30 minutes).</div>
+  </section>
+
+  <!-- Clients -->
+  <section id="clients">
+    <h2>Client Management</h2>
+    <p>Navigate to <strong>Clients</strong> in the sidebar to manage all your agency clients.</p>
+
+    <h3>Client List</h3>
+    <p>The table shows each client's industry, number of campaigns, total spend, total leads, and average CPL. Click <strong>Refresh</strong> to reload from the database.</p>
+
+    <h3>Adding a Client</h3>
+    <p>Fill in the form on the right side:</p>
+    <table>
+      <thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Client Name</strong></td><td><span class="pill pill-red">Required</span></td><td>Unique name for the client.</td></tr>
+        <tr><td><strong>Industry</strong></td><td><span class="pill pill-green">Optional</span></td><td>e.g. SaaS, E-commerce, Real Estate.</td></tr>
+        <tr><td><strong>Target CPL</strong></td><td><span class="pill pill-green">Optional</span></td><td>Your target cost per lead for this client.</td></tr>
+        <tr><td><strong>Monthly Budget</strong></td><td><span class="pill pill-green">Optional</span></td><td>Total monthly ad budget.</td></tr>
+        <tr><td><strong>Revenue per Lead</strong></td><td><span class="pill pill-green">Optional</span></td><td>Enables P&L calculation in Campaign Groups.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Deleting a Client</h3>
+    <p>Click the trash icon on any client row. This permanently deletes the client and all their campaign data. This cannot be undone.</p>
+
+    <h3>Platform Linking</h3>
+    <p>From the Dashboard, when a client is selected and you choose <strong>Sync from Platforms</strong>, entering account IDs and syncing will automatically link those platform accounts to the client for future one-click syncs.</p>
+  </section>
+
+  <!-- Reports -->
+  <section id="reports">
+    <h2>Reports & Email</h2>
+    <p>Navigate to <strong>Reports</strong> in the sidebar. Data must be loaded on the Dashboard first.</p>
+
+    <h3>Report Types</h3>
+    <table>
+      <thead><tr><th>Report</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Standard Report</strong></td>
+          <td>KPI summary, campaign breakdown table, and diagnostic insights. Clean, minimal format suitable for internal review.</td>
+        </tr>
+        <tr>
+          <td><strong>AI Growth Strategy Report</strong></td>
+          <td>Everything in the Standard Report plus AI predictions, recommended actions, performance scores, budget allocation, and detected patterns. Client-ready format.</td>
+        </tr>
+        <tr>
+          <td><strong>Simulation Report</strong></td>
+          <td>Generated from the AI Growth Engine after running scenarios. Shows all simulated budget changes and their projected impact.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Downloading</h3>
+    <p>Click either report button — the PDF downloads immediately. Reports are generated from the currently loaded data for the selected client.</p>
+
+    <h3>Emailing a Report</h3>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body"><h3>Enter your Gmail address</h3><p>The address you'll send from.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Enter your Gmail App Password</h3>
+          <p>Not your regular Gmail password. Generate one at <strong>myaccount.google.com → Security → App Passwords</strong>. Format: <code>xxxx xxxx xxxx xxxx</code>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body"><h3>Enter recipient email</h3><p>Your client's email address.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body"><h3>Click Send AI Growth Report</h3><p>The AI Growth Strategy Report PDF is attached and sent automatically.</p></div>
+      </div>
+    </div>
+
+    <div class="tip">💡 Gmail App Passwords require 2-Step Verification to be enabled on your Google account.</div>
+  </section>
+
+  <!-- Settings -->
+  <section id="settings">
+    <h2>Settings</h2>
+    <p>

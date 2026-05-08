@@ -168,11 +168,11 @@ export const api = {
   chatStatus: (): Promise<{ gemini_configured: boolean; rag_documents_indexed: number; ready: boolean }> =>
     request("/api/chat/status"),
 
-  chat: (message: string): Promise<{ reply: string; history: { role: string; content: string }[] }> =>
+  chat: (message: string, licenseToken = ""): Promise<{ reply: string; history: { role: string; content: string }[] }> =>
     request("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, license_token: licenseToken }),
     }),
 
   chatReset: (): Promise<{ status: string }> =>

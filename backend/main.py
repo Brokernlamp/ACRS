@@ -878,9 +878,89 @@ def download_sample_data():
     )
 
 
+# ── License proxy ───────────────────────────────────────────────────────────
+# These endpoints forward license requests from the frontend to the central
+# license server, keeping the server URL server-side only.
+
+import httpx as _httpx
+
+_LICENSE_SERVER = os.getenv("LICENSE_SERVER_URL", "https://license.aigrowthoperator.com")
+
+
+class LicenseValidateRequest(BaseModel):
+    license_key: str
+    machine_id: str
+    product_name: str = "ai-growth-operator"
+
+
+class LicensePollRequest(BaseModel):
+    token: str
+    machine_id: str
+
+
+@app.post("/api/license/validate")
+async def license_validate(req: LicenseValidateRequest):
+    """Proxy: desktop → local backend → license server."""
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                f"{_LICENSE_SERVER}/api/license/validate",
+                json={"license_key": req.license_key, "machine_id": req.machine_id, "product_name": req.product_name},
+            )
+        return JSONResponse(status_code=r.status_code, content=r.json())
+    except Exception as e:
+        raise HTTPException(503, f"License server unreachable: {e}")
+
+
+@app.post("/api/license/poll")
+async def license_poll(req: LicensePollRequest):
+    """Proxy: desktop → local backend → license server."""
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                f"{_LICENSE_SERVER}/api/license/poll",
+                json={"token": req.token, "machine_id": req.machine_id},
+            )
+        return JSONResponse(status_code=r.status_code, content=r.json())
+    except Exception as e:
+        raise HTTPException(503, f"License server unreachable: {e}")
+
+
+# ── Gemini proxy (Desktop App → License Server → Gemini) ─────────────────────
+# The license server holds the real Gemini API key; the desktop app never sees it.
+
+class GeminiProxyRequest(BaseModel):
+    prompt: str
+    license_token: str  # current lease JWT — server validates before forwarding
+
+
+@app.post("/api/ai/chat")
+async def gemini_proxy(req: GeminiProxyRequest):
+    """Route AI requests through the license server so the Gemini key stays server-side."""
+    try:
+        async with _httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(
+                f"{_LICENSE_SERVER}/api/ai/chat",
+                json={"prompt": req.prompt, "token": req.license_token},
+            )
+        if r.status_code == 402:
+            raise HTTPException(402, "License expired. Please renew your subscription.")
+        if r.status_code == 403:
+            raise HTTPException(403, "License invalid.")
+        if r.status_code == 429:
+            # Pass rate-limit detail through so the frontend can show reset time
+            raise HTTPException(429, detail=r.json())
+        return JSONResponse(status_code=r.status_code, content=r.json())
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(503, f"AI service unreachable: {e}")
+
+
 # ── Chatbot ───────────────────────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     message: str
+    license_token: str = ""  # lease JWT forwarded from desktop app
 
 
 @app.get("/api/chat/status")
@@ -909,9 +989,20 @@ def chat_endpoint(req: ChatRequest):
     if not req.message.strip():
         raise HTTPException(400, "Message cannot be empty.")
     log.info(f"[MAIN] /api/chat received: '{req.message[:80]}'")
-    reply = chatbot_chat(req.message.strip())
-    log.info(f"[MAIN] /api/chat reply: '{reply[:80]}'")
-    return {"reply": reply, "history": get_history()}
+    result = chatbot_chat(req.message.strip(), license_token=req.license_token)
+    if isinstance(result, dict) and result.get("error") == "credits_exhausted":
+        raise HTTPException(402, detail={"error": "credits_exhausted"})
+    if isinstance(result, dict) and result.get("error") == "daily_limit_reached":
+        raise HTTPException(429, detail=result)
+    log.info(f"[MAIN] /api/chat reply: '{result['reply'][:80]}'")
+    return {
+        "reply": result["reply"],
+        "tokens_in": result.get("tokens_in", 0),
+        "tokens_out": result.get("tokens_out", 0),
+        "tokens_total": result.get("tokens_total", 0),
+        "provider": result.get("provider", "unknown"),
+        "history": get_history(),
+    }
 
 
 @app.post("/api/chat/reset")

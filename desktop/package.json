@@ -11,7 +11,8 @@
     "build:linux": "electron-builder --linux"
   },
   "dependencies": {
-    "electron-updater": "^6.3.0"
+    "electron-updater": "^6.3.0",
+    "keytar": "^7.9.0"
   },
   "devDependencies": {
     "electron": "^31.0.0",
@@ -27,6 +28,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "license.js",
       "splash.html",
       "assets/**"
     ],
@@ -54,12 +56,7 @@
       }
     ],
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        }
-      ],
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
       "icon": "assets/icon.ico"
     },
     "nsis": {
