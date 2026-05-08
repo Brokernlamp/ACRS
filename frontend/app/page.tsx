@@ -362,21 +362,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Demo quick-fill */}
-              <div className="flex flex-wrap gap-2 items-center">
-                <span className="text-xs text-gray-400">Demo clients:</span>
-                {[
-                  { name: "Ajay", g: "1234567890", m: "act_111222333" },
-                  { name: "TechStartup", g: "9876543210", m: "act_444555666" },
-                  { name: "EcommerceBrand", g: "1122334455", m: "act_777888999" },
-                ].map(dc => (
-                  <button key={dc.name} onClick={() => { setGoogleId(dc.g); setMetaId(dc.m); }}
-                    className="text-xs text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-2.5 py-1 rounded-full transition-colors">
-                    {dc.name}
-                  </button>
-                ))}
-              </div>
-
               <button onClick={handlePlatformSync} disabled={syncing || (!googleId && !metaId)}
                 className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">
                 {syncing ? <Loader2 size={15} className="animate-spin" /> : <Globe size={15} />}

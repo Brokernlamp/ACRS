@@ -438,34 +438,7 @@ def delete_client_endpoint(client_id: int):
 # ── Health ────────────────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "demo_mode": os.getenv("DEMO_MODE", "true").lower() == "true"}
-
-
-# ── Demo / Multi-platform sync ─────────────────────────────────────────────────────
-@app.get("/api/demo/clients")
-def demo_clients():
-    """List all available demo clients."""
-    from mock_ads_api import get_mock_clients_list
-    return get_mock_clients_list()
-
-
-@app.get("/api/demo/multi-platform-sync")
-def demo_multi_platform_sync(
-    google_customer_id: str = "1234567890",
-    meta_account_id: str = "act_111222333",
-    days: int = 30,
-):
-    """
-    Demo endpoint — returns merged Google + Meta campaign data without real credentials.
-    Uses realistic mock data matching actual API response structures.
-    """
-    from platform_integrations import fetch_google_ads_campaigns, fetch_meta_ads_campaigns
-    from platform_merger import merge_platform_campaigns
-
-    google_camps = fetch_google_ads_campaigns(google_customer_id, days=days)
-    meta_camps = fetch_meta_ads_campaigns(meta_account_id, days=days)
-    merged = merge_platform_campaigns("Demo Client", [google_camps, meta_camps])
-    return _safe(merged)
+    return {"status": "ok"}
 
 
 # ── Platform linking & syncing ─────────────────────────────────────────────────────
@@ -504,12 +477,11 @@ def link_platforms(client_id: int, req: LinkPlatformsRequest):
 @app.post("/api/clients/{client_id}/sync-platforms")
 def sync_platforms(client_id: int, days: int = 30):
     """
-    Fetch latest campaigns from all linked platforms, merge, and save to DB.
-    Uses demo mode if DEMO_MODE=true or no real tokens available.
+    Fetch latest campaigns from all linked platforms using stored OAuth tokens.
     """
     from platform_integrations import fetch_google_ads_campaigns, fetch_meta_ads_campaigns
     from platform_merger import merge_platform_campaigns
-    from database.crud import get_client_by_id
+    from database.crud import get_client_by_id, get_api_connections
     from database.models import Campaign as CampaignModel
 
     db = SessionLocal()
@@ -518,25 +490,60 @@ def sync_platforms(client_id: int, days: int = 30):
         if not client:
             raise HTTPException(404, "Client not found")
 
+        # Get stored OAuth tokens
+        connections = {c.platform: c for c in get_api_connections(db, _current_user_id)}
+        google_conn = connections.get("google_ads")
+        meta_conn = connections.get("meta_ads")
+
         all_camps: list[list[dict]] = []
+        errors: list[str] = []
 
         if client.google_ads_customer_id:
-            g = fetch_google_ads_campaigns(client.google_ads_customer_id, days=days)
-            all_camps.append(g)
-            client.last_google_sync = datetime.utcnow()
+            if not google_conn or not google_conn.access_token:
+                errors.append("Google Ads: No access token stored. Connect your account in Settings.")
+            else:
+                try:
+                    g = fetch_google_ads_campaigns(
+                        client.google_ads_customer_id,
+                        google_conn.access_token,
+                        days=days,
+                    )
+                    all_camps.append(g)
+                    client.last_google_sync = datetime.utcnow()
+                    log.info(f"[SYNC] Google: {len(g)} rows")
+                except Exception as e:
+                    errors.append(f"Google Ads: {e}")
+                    log.error(f"[SYNC] Google failed: {e}")
 
         if client.meta_ads_account_id:
-            m = fetch_meta_ads_campaigns(client.meta_ads_account_id, days=days)
-            all_camps.append(m)
-            client.last_meta_sync = datetime.utcnow()
+            if not meta_conn or not meta_conn.access_token:
+                errors.append("Meta Ads: No access token stored. Connect your account in Settings.")
+            else:
+                try:
+                    m = fetch_meta_ads_campaigns(
+                        client.meta_ads_account_id,
+                        meta_conn.access_token,
+                        days=days,
+                    )
+                    all_camps.append(m)
+                    client.last_meta_sync = datetime.utcnow()
+                    log.info(f"[SYNC] Meta: {len(m)} rows")
+                except Exception as e:
+                    errors.append(f"Meta Ads: {e}")
+                    log.error(f"[SYNC] Meta failed: {e}")
 
         if not all_camps:
-            raise HTTPException(400, "No platforms linked. Use /link-platforms first.")
+            msg = "No data synced."
+            if errors:
+                msg += " Errors: " + " | ".join(errors)
+            elif not client.google_ads_customer_id and not client.meta_ads_account_id:
+                msg = "No platforms linked. Use /link-platforms first."
+            raise HTTPException(400, msg)
 
         merged = merge_platform_campaigns(client.name, all_camps)
         db.commit()
 
-        # Save campaigns to DB
+        # Save to DB
         campaigns_added = 0
         existing = {
             (c.platform, c.platform_campaign_id): c
@@ -574,12 +581,14 @@ def sync_platforms(client_id: int, days: int = 30):
         db.commit()
         log.info(f"[SYNC] client={client_id} added={campaigns_added} rows={len(merged['campaigns'])}")
 
-        return _safe({
+        result = _safe({
             "status": "synced",
             "campaigns_added": campaigns_added,
             "total_rows": len(merged["campaigns"]),
             "aggregated": merged["aggregated"],
+            "errors": errors,
         })
+        return result
     finally:
         db.close()
 
